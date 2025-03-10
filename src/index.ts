@@ -369,6 +369,36 @@ async function handleUIChanges(): Promise<void> {
       }
     });
 
+    // Add settings button handler
+    popupContent.querySelector('#open-server-settings')?.addEventListener('click', async (e) => {
+      const button = e.currentTarget as HTMLButtonElement;
+      const originalText = button.innerHTML;
+
+      // Show loading state
+      button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Opening';
+      button.disabled = true;
+
+      try {
+        await MCPClient.openServerSettings();
+
+        // Show success state
+        button.innerHTML = '<i class="fa-solid fa-check"></i> Success';
+        button.style.background = 'var(--active)';
+      } catch (error) {
+        console.error('Error opening settings:', error);
+        button.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Error';
+        button.style.background = 'var(--warning)';
+        await st_echo('error', 'Error opening settings');
+      }
+
+      // Reset button after delay
+      setTimeout(() => {
+        button.innerHTML = originalText;
+        button.style.background = '';
+        button.disabled = false;
+      }, 1500);
+    });
+
     // Add toggle handler for tools after content is populated
     popupContent.addEventListener('change', async (e) => {
       const target = e.target as HTMLInputElement;

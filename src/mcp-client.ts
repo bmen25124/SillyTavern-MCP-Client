@@ -489,4 +489,21 @@ export class MCPClient {
       throw new Error(`Failed to reload tools for some servers: ${errors.map((e) => e.message).join(', ')}`);
     }
   }
+
+  /**
+   * Opens the server settings UI.
+   * @returns Whether the settings were opened successfully.
+   */
+  static async openServerSettings(): Promise<void> {
+    const context = SillyTavern.getContext();
+    const response = await fetch(`/api/plugins/${PLUGIN_ID}/open-settings`, {
+      method: 'POST',
+      headers: context.getRequestHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || response.statusText);
+    }
+  }
 }
