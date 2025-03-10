@@ -88,15 +88,16 @@ async function handleUIChanges(): Promise<void> {
       toolsList.appendChild(noServers);
     } else {
       for (const server of allServers) {
+        const isConnected = MCPClient.isConnected(server.name);
         // Clone server template
         const serverNode = serverTemplate.content.cloneNode(true) as DocumentFragment;
         const serverSection = serverNode.querySelector('.server-tools-section')!;
-        if (!server.enabled) serverSection.classList.add('disabled');
+        if (!isConnected) serverSection.classList.add('disabled');
 
         // Set server name and enabled state
         (serverSection.querySelector('h4') as HTMLHeadingElement).textContent = server.name;
         const serverToggle = serverSection.querySelector('.server-toggle') as HTMLInputElement;
-        serverToggle.checked = server.enabled;
+        serverToggle.checked = isConnected;
         (serverToggle as HTMLInputElement & { dataset: DOMStringMap }).dataset.server = server.name;
 
         // Add accordion click handler

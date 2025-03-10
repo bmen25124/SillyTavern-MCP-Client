@@ -42,7 +42,6 @@ export class MCPClient {
     });
 
     if (!response.ok) {
-      console.error('[MCPClient] Failed to fetch servers:', response.statusText);
       return [];
     }
 
@@ -63,7 +62,6 @@ export class MCPClient {
     });
 
     if (!response.ok) {
-      console.error(`[MCPClient] Failed to fetch tools for server "${serverName}":`, response.statusText);
       const error = await response.json();
       throw new Error(error.error || response.statusText);
     }
@@ -128,8 +126,6 @@ export class MCPClient {
     });
 
     if (!response.ok) {
-      console.error(`[MCPClient] Failed to add server "${name}":`, response.statusText);
-
       const error = await response.json();
       throw new Error(error.error || response.statusText);
     }
@@ -161,7 +157,6 @@ export class MCPClient {
     });
 
     if (!response.ok) {
-      console.error(`[MCPClient] Failed to connect to server "${name}":`, response.statusText);
       const error = await response.json();
       throw new Error(error.error || response.statusText);
     }
@@ -183,7 +178,6 @@ export class MCPClient {
     });
 
     if (!response.ok) {
-      console.error(`[MCPClient] Failed to disconnect from server "${name}":`, response.statusText);
       const error = await response.json();
       throw new Error(error.error || response.statusText);
     }
@@ -230,7 +224,6 @@ export class MCPClient {
     });
 
     if (!response.ok) {
-      console.error(`[MCPClient] Failed to delete server "${name}":`, response.statusText);
       const error = await response.json();
       throw new Error(error.error || response.statusText);
     }
@@ -262,7 +255,6 @@ export class MCPClient {
     });
 
     if (!response.ok) {
-      console.error('[MCPClient] Failed to update disabled servers:', response.statusText);
       const error = await response.json();
       throw new Error(error.error || response.statusText);
     }
@@ -287,7 +279,6 @@ export class MCPClient {
           this.registerTools(server.name);
         }
       } catch (serverError) {
-        console.error(`[MCPClient] Error handling server "${server.name}":`, serverError);
         throw serverError;
       }
     }
@@ -326,7 +317,6 @@ export class MCPClient {
             // Register tools
             this.registerTools(name);
           } catch (error) {
-            console.error(`[MCPClient] Error handling server "${name}":`, error);
             errors.push(error instanceof Error ? error : new Error(String(error)));
           }
         }
@@ -339,7 +329,6 @@ export class MCPClient {
           // Disconnect server
           await this.disconnect(serverName);
         } catch (error) {
-          console.error(`[MCPClient] Error disconnecting server "${serverName}":`, error);
           errors.push(error instanceof Error ? error : new Error(String(error)));
         }
       }
@@ -376,7 +365,6 @@ export class MCPClient {
       await this.#fetchTools(serverName);
       return this.#serverTools.get(serverName);
     } catch (error) {
-      console.error(`[MCPClient] Error fetching tools for server "${serverName}":`, error);
       return undefined;
     }
   }
@@ -398,7 +386,6 @@ export class MCPClient {
     });
 
     if (!response.ok) {
-      console.error(`[MCPClient] Failed to update disabled tools for server "${serverName}":`, response.statusText);
       const error = await response.json();
       throw new Error(error.error || response.statusText);
     }
@@ -449,7 +436,6 @@ export class MCPClient {
       });
 
       if (!response.ok) {
-        console.error(`[MCPClient] Failed to call tool "${toolName}" on server "${serverName}":`, response.statusText);
         throw new Error(response.statusText);
       }
 
@@ -457,7 +443,6 @@ export class MCPClient {
       console.log(`[MCPClient] Successfully called tool "${toolName}" on server "${serverName}":`, data.result);
       return data.result;
     } catch (error) {
-      console.error(`[MCPClient] Error calling tool "${toolName}" on server "${serverName}":`, error);
       throw error;
     }
   }
@@ -482,7 +467,6 @@ export class MCPClient {
         });
 
         if (!response.ok) {
-          console.error(`[MCPClient] Failed to reload tools for server "${serverName}":`, response.statusText);
           const error = await response.json();
           throw new Error(error.error || response.statusText);
         }
@@ -493,7 +477,6 @@ export class MCPClient {
         this.registerTools(serverName);
         console.log(`[MCPClient] Successfully reloaded tools for server "${serverName}"`);
       } catch (error) {
-        console.error(`[MCPClient] Error reloading tools for server "${serverName}":`, error);
         errors.push(error instanceof Error ? error : new Error(String(error)));
       }
     }
