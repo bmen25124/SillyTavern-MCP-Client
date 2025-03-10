@@ -134,11 +134,15 @@ export class MCPClient {
 
     if (context.extensionSettings.mcp?.enabled) {
       console.log(`[MCPClient] Auto-starting server "${name}"`);
-      await this.connect(name, config);
-
-      await this.#fetchTools(name);
-
-      this.registerTools(name);
+      try {
+        await this.connect(name, config);
+        await this.#fetchTools(name);
+        this.registerTools(name);
+      } catch (error) {
+        const connectError = new Error(`Server "${name}" was added but failed to connect: ${(error as Error).message}`);
+        (connectError as any).isConnectError = true;
+        throw connectError;
+      }
     }
   }
 

@@ -209,18 +209,39 @@ async function handleUIChanges(): Promise<void> {
     await populateToolsList(popupContent);
 
     // Add server form handlers
-    popupContent.querySelector('#add-server')?.addEventListener('click', () => {
+    const addButton = popupContent.querySelector('#add-server') as HTMLButtonElement;
+    const submitButton = popupContent.querySelector('#submit-server') as HTMLButtonElement;
+    const serverInput = $('#server-input');
+
+    // Enable add button initially
+    addButton.disabled = false;
+
+    // Enable submit button only when there's input
+    serverInput.on('input', () => {
+      submitButton.disabled = !serverInput.val();
+    });
+
+    addButton.addEventListener('click', () => {
       $('#add-server-form').show();
+      addButton.disabled = true;
     });
 
     popupContent.querySelector('#cancel-server')?.addEventListener('click', () => {
       $('#add-server-form').hide();
-      $('#server-input').val('');
+      serverInput.val('');
+      addButton.disabled = false;
+      submitButton.disabled = true;
     });
 
     popupContent.querySelector('#submit-server')?.addEventListener('click', async () => {
+      const submitButton = popupContent.querySelector('#submit-server') as HTMLButtonElement;
       const input = $('#server-input').val() as string;
       if (!input) return;
+
+      // Show loading state
+      const originalText = submitButton.innerHTML;
+      submitButton.disabled = true;
+      submitButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
 
       let serverName = '';
       let config: ServerConfig;
@@ -258,14 +279,52 @@ async function handleUIChanges(): Promise<void> {
 
         await MCPClient.addServer(serverName, config);
         console.log(`Server "${serverName}" added successfully`);
+
+        // If we get here, either server was added successfully with no connection
+        // attempt, or it was added and connected successfully
         await st_echo('success', `Server "${serverName}" added successfully`);
+
+        // Show success state briefly
+        submitButton.innerHTML = '<i class="fa-solid fa-check"></i> Success';
+        submitButton.style.background = 'var(--active)';
+
+        // Hide form and reset input
         $('#add-server-form').hide();
         $('#server-input').val('');
         await populateToolsList(popupContent);
       } catch (error) {
         console.error('Error adding server:', error);
-        await st_echo('error', `Error adding server: ${(error as Error).message}`);
+
+        if ((error as any).isConnectError) {
+          // Server was added but failed to connect
+          await st_echo('warning', (error as Error).message);
+
+          // Show warning state
+          submitButton.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Added With Warning';
+          submitButton.style.background = 'var(--warning)';
+
+          // Still hide form and update UI since server was added
+          $('#add-server-form').hide();
+          $('#server-input').val('');
+          await populateToolsList(popupContent);
+        } else {
+          // Failed to add server
+          await st_echo('error', `Error adding server: ${(error as Error).message}`);
+
+          // Show error state
+          submitButton.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Error';
+          submitButton.style.background = 'var(--error)';
+        }
       }
+
+      // Reset button after delay
+      setTimeout(() => {
+        submitButton.innerHTML = originalText;
+        submitButton.style.background = '';
+        // Enable button if there's input
+        submitButton.disabled = !serverInput.val();
+        addButton.disabled = false;
+      }, 1500);
     });
 
     // Add reload all tools button handler
