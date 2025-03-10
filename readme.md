@@ -27,8 +27,8 @@ https://github.com/user-attachments/assets/659c5112-c2d0-425d-a6fc-e4b47b517066
 ### I need to change the server configuration, how can I do that?
 Press `Settings` button to open location of `mcp_settings.json` with your File Explorer. Edit the file. Disconnect and reconnect via `Enable Server` tickbox.
 
-### I'm getting error when I try to connect to the MCP server.
+### I'm getting an error when I try to connect to the MCP server.
 Check out SillyTavern console for more information. Possible errors:
-- Read twice readme of MCP server.
+- Read twice the readme of MCP server.
 - Missing arguments.
-- Invalid `env` param. You might need set API key if it's required.
+- Invalid `env` param. You might need to set the API key if it's required.
