@@ -42,7 +42,11 @@ async function handleUIChanges(): Promise<void> {
       context.saveSettingsDebounced();
 
       // Use MCPClient's handleTools method to manage tool registration
-      await MCPClient.handleTools(enabled);
+      try {
+        await MCPClient.handleTools(enabled);
+      } catch (error) {
+        console.error(`[MCPClient] Error handling MCP tools:`, error);
+      }
     });
 
   /**
@@ -118,8 +122,8 @@ async function handleUIChanges(): Promise<void> {
           serverToggle.disabled = true;
           labelSpan.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
 
+          const enabled = serverToggle.checked;
           try {
-            const enabled = serverToggle.checked;
             serverSection.classList.toggle('disabled', !enabled);
 
             // Get all servers and update disabled list
@@ -137,7 +141,7 @@ async function handleUIChanges(): Promise<void> {
             labelSpan.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Failed';
             serverToggle.checked = !serverToggle.checked;
             serverSection.classList.toggle('disabled', !serverToggle.checked);
-            await st_echo('error', `Failed to ${serverToggle.checked ? 'enable' : 'disable'} server "${server.name}"`);
+            await st_echo('error', `Failed to ${enabled ? 'enable' : 'disable'} server "${server.name}"`);
           }
 
           // Reset label after delay
@@ -153,19 +157,14 @@ async function handleUIChanges(): Promise<void> {
           e.stopPropagation(); // Prevent accordion from triggering
           const name = server.name;
           const confirm = await context.Popup.show.confirm(
-            `Are you sure you want to delete the selected profile?`,
+            `Are you sure you want to delete the selected server?`,
             name,
           );
           if (confirm) {
             try {
-              const success = await MCPClient.deleteServer(name);
-              if (success) {
-                console.log(`Server "${name}" removed successfully`);
-                await populateToolsList(popupContent);
-              } else {
-                console.error(`Failed to remove server "${name}"`);
-                await st_echo('error', `Failed to remove server "${name}"`);
-              }
+              await MCPClient.deleteServer(name);
+              console.log(`Server "${name}" removed successfully`);
+              await populateToolsList(popupContent);
             } catch (error) {
               console.error('Error removing server:', error);
               await st_echo('error', `Error removing server "${name}"`);
@@ -256,17 +255,12 @@ async function handleUIChanges(): Promise<void> {
           };
         }
 
-        const success = await MCPClient.addServer(serverName, config);
-        if (success) {
-          console.log(`Server "${serverName}" added successfully`);
-          await st_echo('success', `Server "${serverName}" added successfully`);
-          $('#add-server-form').hide();
-          $('#server-input').val('');
-          await populateToolsList(popupContent);
-        } else {
-          console.error(`Failed to add server "${serverName}"`);
-          await st_echo('error', `Failed to add server "${serverName}"`);
-        }
+        await MCPClient.addServer(serverName, config);
+        console.log(`Server "${serverName}" added successfully`);
+        await st_echo('success', `Server "${serverName}" added successfully`);
+        $('#add-server-form').hide();
+        $('#server-input').val('');
+        await populateToolsList(popupContent);
       } catch (error) {
         console.error('Error adding server:', error);
         await st_echo('error', `Error adding server: ${(error as Error).message}`);
@@ -283,24 +277,16 @@ async function handleUIChanges(): Promise<void> {
       button.disabled = true;
 
       try {
-        const success = await MCPClient.reloadAllTools();
+        await MCPClient.reloadAllTools();
 
-        if (success) {
-          // Show success state
-          button.innerHTML = '<i class="fa-solid fa-check"></i> Success';
-          button.style.background = 'var(--active)';
-          console.log('Successfully reloaded all tools');
-          await st_echo('success', 'Successfully reloaded all tools');
+        // Show success state
+        button.innerHTML = '<i class="fa-solid fa-check"></i> Success';
+        button.style.background = 'var(--active)';
+        console.log('Successfully reloaded all tools');
+        await st_echo('success', 'Successfully reloaded all tools');
 
-          // Refresh the tools list
-          await populateToolsList(popupContent);
-        } else {
-          // Show error state
-          button.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Failed';
-          button.style.background = 'var(--warning)';
-          console.error('Failed to reload one or more tools');
-          await st_echo('error', 'Failed to reload one or more tools');
-        }
+        // Refresh the tools list
+        await populateToolsList(popupContent);
 
         // Reset button after delay
         setTimeout(() => {
@@ -372,7 +358,11 @@ async function handleUIChanges(): Promise<void> {
   });
 
   // Initial tool registration if enabled
-  await MCPClient.handleTools(context.extensionSettings.mcp.enabled);
+  try {
+    await MCPClient.handleTools(context.extensionSettings.mcp.enabled);
+  } catch (error) {
+    await st_echo('error', `Error handling tools: ${(error as Error).message}`);
+  }
 }
 
 function initializeEvents() {

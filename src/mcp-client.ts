@@ -55,34 +55,24 @@ export class MCPClient {
    * @param serverName The name of the server to fetch tools from.
    * @returns Whether the tools were fetched and registered successfully.
    */
-  static async #fetchTools(serverName: string): Promise<boolean> {
-    try {
-      const context = SillyTavern.getContext();
-      let tools: McpTool[] = [];
+  static async #fetchTools(serverName: string): Promise<void> {
+    const context = SillyTavern.getContext();
+    const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/list-tools`, {
+      method: 'GET',
+      headers: context.getRequestHeaders(),
+    });
 
-      try {
-        const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/list-tools`, {
-          method: 'GET',
-          headers: context.getRequestHeaders(),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data)) {
-            tools = data;
-          }
-        }
-      } catch (error) {
-        console.error(`[MCPClient] Failed to fetch tools for server "${serverName}":`, error);
-      }
-
-      // Always store tools in cache, even if empty
-      this.#serverTools.set(serverName, tools);
-      return tools.length > 0;
-    } catch (error) {
-      console.error(`[MCPClient] Error fetching tools for server "${serverName}":`, error);
-      return false;
+    if (!response.ok) {
+      console.error(`[MCPClient] Failed to fetch tools for server "${serverName}":`, response.statusText);
+      const error = await response.json();
+      throw new Error(error.error || response.statusText);
     }
+
+    const data = await response.json();
+    const tools: McpTool[] = Array.isArray(data) ? data : [];
+
+    // Store tools in cache
+    this.#serverTools.set(serverName, tools);
   }
 
   static registerTools(name: string): void {
@@ -126,38 +116,33 @@ export class MCPClient {
    * @param config The server configuration.
    * @returns Whether the server was added successfully.
    */
-  static async addServer(name: string, config: ServerConfig): Promise<boolean> {
-    try {
-      const context = SillyTavern.getContext();
-      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers`, {
-        method: 'POST',
-        headers: context.getRequestHeaders(),
-        body: JSON.stringify({
-          name,
-          config,
-        }),
-      });
+  static async addServer(name: string, config: ServerConfig): Promise<void> {
+    const context = SillyTavern.getContext();
+    const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers`, {
+      method: 'POST',
+      headers: context.getRequestHeaders(),
+      body: JSON.stringify({
+        name,
+        config,
+      }),
+    });
 
-      if (!response.ok) {
-        console.error(`[MCPClient] Failed to add server "${name}":`, response.statusText);
-        return false;
-      }
+    if (!response.ok) {
+      console.error(`[MCPClient] Failed to add server "${name}":`, response.statusText);
 
-      console.log(`[MCPClient] Added server "${name}"`);
+      const error = await response.json();
+      throw new Error(error.error || response.statusText);
+    }
 
-      if (context.extensionSettings.mcp?.enabled) {
-        console.log(`[MCPClient] Auto-starting server "${name}"`);
-        await this.connect(name, config);
+    console.log(`[MCPClient] Added server "${name}"`);
 
-        await this.#fetchTools(name);
+    if (context.extensionSettings.mcp?.enabled) {
+      console.log(`[MCPClient] Auto-starting server "${name}"`);
+      await this.connect(name, config);
 
-        this.registerTools(name);
-      }
+      await this.#fetchTools(name);
 
-      return true;
-    } catch (error) {
-      console.error(`[MCPClient] Error adding server "${name}":`, error);
-      return false;
+      this.registerTools(name);
     }
   }
 
@@ -167,27 +152,22 @@ export class MCPClient {
    * @param config The server configuration.
    * @returns Whether the connection was successful.
    */
-  static async connect(name: string, config: ServerConfig): Promise<boolean> {
-    try {
-      const context = SillyTavern.getContext();
-      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${name}/start`, {
-        method: 'POST',
-        headers: context.getRequestHeaders(),
-        body: JSON.stringify(config),
-      });
+  static async connect(name: string, config: ServerConfig): Promise<void> {
+    const context = SillyTavern.getContext();
+    const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${name}/start`, {
+      method: 'POST',
+      headers: context.getRequestHeaders(),
+      body: JSON.stringify(config),
+    });
 
-      if (!response.ok) {
-        console.error(`[MCPClient] Failed to connect to server "${name}":`, response.statusText);
-        return false;
-      }
-
-      this.#connectedServers.set(name, config);
-      console.log(`[MCPClient] Connected to server "${name}"`);
-      return true;
-    } catch (error) {
-      console.error(`[MCPClient] Error connecting to server "${name}":`, error);
-      return false;
+    if (!response.ok) {
+      console.error(`[MCPClient] Failed to connect to server "${name}":`, response.statusText);
+      const error = await response.json();
+      throw new Error(error.error || response.statusText);
     }
+
+    this.#connectedServers.set(name, config);
+    console.log(`[MCPClient] Connected to server "${name}"`);
   }
 
   /**
@@ -195,30 +175,24 @@ export class MCPClient {
    * @param name The name of the server to disconnect from.
    * @returns Whether the disconnection was successful.
    */
-  static async disconnect(name: string): Promise<boolean> {
-    try {
-      const context = SillyTavern.getContext();
-      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${name}/stop`, {
-        method: 'POST',
-        headers: context.getRequestHeaders(),
-      });
+  static async disconnect(name: string): Promise<void> {
+    const context = SillyTavern.getContext();
+    const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${name}/stop`, {
+      method: 'POST',
+      headers: context.getRequestHeaders(),
+    });
 
-      if (!response.ok) {
-        console.error(`[MCPClient] Failed to disconnect from server "${name}":`, response.statusText);
-        return false;
-      }
-
-      this.#connectedServers.delete(name);
-      console.log(`[MCPClient] Disconnected from server "${name}"`);
-
-      // Unregister all tools for this server
-      this.#unregisterServerTools(name);
-
-      return true;
-    } catch (error) {
-      console.error(`[MCPClient] Error disconnecting from server "${name}":`, error);
-      return false;
+    if (!response.ok) {
+      console.error(`[MCPClient] Failed to disconnect from server "${name}":`, response.statusText);
+      const error = await response.json();
+      throw new Error(error.error || response.statusText);
     }
+
+    this.#connectedServers.delete(name);
+    console.log(`[MCPClient] Disconnected from server "${name}"`);
+
+    // Unregister all tools for this server
+    this.#unregisterServerTools(name);
   }
 
   /**
@@ -243,30 +217,25 @@ export class MCPClient {
    * @param name The name of the server to delete.
    * @returns Whether the deletion was successful.
    */
-  static async deleteServer(name: string): Promise<boolean> {
-    try {
-      const context = SillyTavern.getContext();
-      // First disconnect if connected
-      if (this.isConnected(name)) {
-        await this.disconnect(name);
-      }
-
-      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${encodeURIComponent(name)}`, {
-        method: 'DELETE',
-        headers: context.getRequestHeaders(),
-      });
-
-      if (!response.ok) {
-        console.error(`[MCPClient] Failed to delete server "${name}":`, response.statusText);
-        return false;
-      }
-
-      console.log(`[MCPClient] Deleted server "${name}"`);
-      return true;
-    } catch (error) {
-      console.error(`[MCPClient] Error deleting server "${name}":`, error);
-      return false;
+  static async deleteServer(name: string): Promise<void> {
+    const context = SillyTavern.getContext();
+    // First disconnect if connected
+    if (this.isConnected(name)) {
+      await this.disconnect(name);
     }
+
+    const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+      headers: context.getRequestHeaders(),
+    });
+
+    if (!response.ok) {
+      console.error(`[MCPClient] Failed to delete server "${name}":`, response.statusText);
+      const error = await response.json();
+      throw new Error(error.error || response.statusText);
+    }
+
+    console.log(`[MCPClient] Deleted server "${name}"`);
   }
 
   /**
@@ -282,25 +251,26 @@ export class MCPClient {
    * @param disabledServers Array of server names that should be disabled
    * @returns Whether the update was successful
    */
-  static async updateDisabledServers(disabledServers: string[]): Promise<boolean> {
-    try {
-      const context = SillyTavern.getContext();
-      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/disabled`, {
-        method: 'POST',
-        headers: context.getRequestHeaders(),
-        body: JSON.stringify({
-          disabledServers,
-        }),
-      });
+  static async updateDisabledServers(disabledServers: string[]): Promise<void> {
+    const context = SillyTavern.getContext();
+    const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/disabled`, {
+      method: 'POST',
+      headers: context.getRequestHeaders(),
+      body: JSON.stringify({
+        disabledServers,
+      }),
+    });
 
-      if (!response.ok) {
-        console.error('[MCPClient] Failed to update disabled servers:', response.statusText);
-        return false;
-      }
+    if (!response.ok) {
+      console.error('[MCPClient] Failed to update disabled servers:', response.statusText);
+      const error = await response.json();
+      throw new Error(error.error || response.statusText);
+    }
 
-      // Handle server connections based on their new state
-      const allServers = await this.getServers();
-      for (const server of allServers) {
+    // Handle server connections based on their new state
+    const allServers = await this.getServers();
+    for (const server of allServers) {
+      try {
         const isDisabled = disabledServers.includes(server.name);
         const isConnected = this.isConnected(server.name);
         const shouldBeConnected = !isDisabled && context.extensionSettings.mcp?.enabled;
@@ -316,11 +286,10 @@ export class MCPClient {
           }
           this.registerTools(server.name);
         }
+      } catch (serverError) {
+        console.error(`[MCPClient] Error handling server "${server.name}":`, serverError);
+        throw serverError;
       }
-      return true;
-    } catch (error) {
-      console.error('[MCPClient] Error updating disabled servers:', error);
-      return false;
     }
   }
 
@@ -334,6 +303,8 @@ export class MCPClient {
       return;
     }
 
+    const errors: Error[] = [];
+
     if (mcpEnabled) {
       // For each configured server
       const allServers = await this.getServers();
@@ -341,27 +312,41 @@ export class MCPClient {
         const { name, config, enabled } = server;
         // Only connect to enabled servers
         if (enabled) {
-          // Connect to server if not already connected
-          if (!this.isConnected(name)) {
-            await this.connect(name, config);
-          }
+          try {
+            // Connect to server if not already connected
+            if (!this.isConnected(name)) {
+              await this.connect(name, config);
+            }
 
-          // Fetch tools if we don't have them cached
-          if (!this.#serverTools.has(name)) {
-            await this.#fetchTools(name);
-          }
+            // Fetch tools if we don't have them cached
+            if (!this.#serverTools.has(name)) {
+              await this.#fetchTools(name);
+            }
 
-          // Register tools
-          this.registerTools(name);
+            // Register tools
+            this.registerTools(name);
+          } catch (error) {
+            console.error(`[MCPClient] Error handling server "${name}":`, error);
+            errors.push(error instanceof Error ? error : new Error(String(error)));
+          }
         }
       }
     } else {
       // When disabling, disconnect servers and unregister tools
       const connectedServers = this.getConnectedServers();
       for (const serverName of connectedServers) {
-        // Disconnect server
-        await this.disconnect(serverName);
+        try {
+          // Disconnect server
+          await this.disconnect(serverName);
+        } catch (error) {
+          console.error(`[MCPClient] Error disconnecting server "${serverName}":`, error);
+          errors.push(error instanceof Error ? error : new Error(String(error)));
+        }
       }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`Failed to handle some servers: ${errors.map((e) => e.message).join(', ')}`);
     }
   }
 
@@ -388,15 +373,12 @@ export class MCPClient {
 
     // Try fetching from API
     try {
-      const success = await this.#fetchTools(serverName);
-      if (success) {
-        return this.#serverTools.get(serverName);
-      }
+      await this.#fetchTools(serverName);
+      return this.#serverTools.get(serverName);
     } catch (error) {
       console.error(`[MCPClient] Error fetching tools for server "${serverName}":`, error);
+      return undefined;
     }
-
-    return undefined;
   }
 
   /**
@@ -405,46 +387,41 @@ export class MCPClient {
    * @param disabledTools Array of tool names that should be disabled
    * @returns Whether the update was successful
    */
-  static async updateDisabledTools(serverName: string, disabledTools: string[]): Promise<boolean> {
-    try {
-      const context = SillyTavern.getContext();
-      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/disabled-tools`, {
-        method: 'POST',
-        headers: context.getRequestHeaders(),
-        body: JSON.stringify({
-          disabledTools,
-        }),
-      });
+  static async updateDisabledTools(serverName: string, disabledTools: string[]): Promise<void> {
+    const context = SillyTavern.getContext();
+    const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/disabled-tools`, {
+      method: 'POST',
+      headers: context.getRequestHeaders(),
+      body: JSON.stringify({
+        disabledTools,
+      }),
+    });
 
-      if (!response.ok) {
-        console.error(`[MCPClient] Failed to update disabled tools for server "${serverName}":`, response.statusText);
-        return false;
-      }
+    if (!response.ok) {
+      console.error(`[MCPClient] Failed to update disabled tools for server "${serverName}":`, response.statusText);
+      const error = await response.json();
+      throw new Error(error.error || response.statusText);
+    }
 
-      // Update the tools' states in our cache
-      const tools = this.#serverTools.get(serverName);
-      if (tools) {
-        tools.forEach((tool) => {
-          const wasEnabled = tool._enabled;
-          tool._enabled = !disabledTools.includes(tool.name);
+    // Update the tools' states in our cache
+    const tools = this.#serverTools.get(serverName);
+    if (tools) {
+      tools.forEach((tool) => {
+        const wasEnabled = tool._enabled;
+        tool._enabled = !disabledTools.includes(tool.name);
 
-          // If MCP is enabled, handle tool registration
-          if (context.extensionSettings.mcp?.enabled && this.isConnected(serverName)) {
-            const toolId = `mcp_${serverName}_${tool.name}`;
-            if (wasEnabled && !tool._enabled) {
-              // Tool was enabled but now disabled - unregister it
-              context.unregisterFunctionTool(toolId);
-            } else if (!wasEnabled && tool._enabled) {
-              // Tool was disabled but now enabled - register it
-              this.#registerMcpTool(serverName, tool);
-            }
+        // If MCP is enabled, handle tool registration
+        if (context.extensionSettings.mcp?.enabled && this.isConnected(serverName)) {
+          const toolId = `mcp_${serverName}_${tool.name}`;
+          if (wasEnabled && !tool._enabled) {
+            // Tool was enabled but now disabled - unregister it
+            context.unregisterFunctionTool(toolId);
+          } else if (!wasEnabled && tool._enabled) {
+            // Tool was disabled but now enabled - register it
+            this.#registerMcpTool(serverName, tool);
           }
-        });
-      }
-      return true;
-    } catch (error) {
-      console.error(`[MCPClient] Error updating disabled tools for server "${serverName}":`, error);
-      return false;
+        }
+      });
     }
   }
 
@@ -490,42 +467,39 @@ export class MCPClient {
    * This will trigger a reload of tools on each server and update the local tool cache.
    * @returns Whether all servers were reloaded successfully.
    */
-  static async reloadAllTools(): Promise<boolean> {
-    try {
-      const context = SillyTavern.getContext();
-      const connectedServers = await this.getServers();
-      let allSuccess = true;
+  static async reloadAllTools(): Promise<void> {
+    const context = SillyTavern.getContext();
+    const connectedServers = await this.getServers();
+    const errors: Error[] = [];
 
-      for (const server of connectedServers) {
-        const { name: serverName } = server;
-        try {
-          // Request server to reload its tools
-          const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/reload-tools`, {
-            method: 'POST',
-            headers: context.getRequestHeaders(),
-          });
+    for (const server of connectedServers) {
+      const { name: serverName } = server;
+      try {
+        // Request server to reload its tools
+        const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/reload-tools`, {
+          method: 'POST',
+          headers: context.getRequestHeaders(),
+        });
 
-          if (!response.ok) {
-            console.error(`[MCPClient] Failed to reload tools for server "${serverName}":`, response.statusText);
-            allSuccess = false;
-            continue;
-          }
-
-          // Re-fetch tools for this server
-          await this.#fetchTools(serverName);
-          // Re-register tools
-          this.registerTools(serverName);
-          console.log(`[MCPClient] Successfully reloaded tools for server "${serverName}"`);
-        } catch (error) {
-          console.error(`[MCPClient] Error reloading tools for server "${serverName}":`, error);
-          allSuccess = false;
+        if (!response.ok) {
+          console.error(`[MCPClient] Failed to reload tools for server "${serverName}":`, response.statusText);
+          const error = await response.json();
+          throw new Error(error.error || response.statusText);
         }
-      }
 
-      return allSuccess;
-    } catch (error) {
-      console.error('[MCPClient] Error in reloadAllTools:', error);
-      return false;
+        // Re-fetch tools for this server
+        await this.#fetchTools(serverName);
+        // Re-register tools
+        this.registerTools(serverName);
+        console.log(`[MCPClient] Successfully reloaded tools for server "${serverName}"`);
+      } catch (error) {
+        console.error(`[MCPClient] Error reloading tools for server "${serverName}":`, error);
+        errors.push(error instanceof Error ? error : new Error(String(error)));
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`Failed to reload tools for some servers: ${errors.map((e) => e.message).join(', ')}`);
     }
   }
 }
