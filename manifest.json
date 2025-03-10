@@ -1,0 +1,11 @@
+{
+    "display_name": "MCP Client",
+    "loading_order": 300,
+    "requires": [],
+    "optional": [],
+    "js": "dist/index.js",
+    "css": "dist/style.css",
+    "author": "bmen25124",
+    "version": "0.1.0",
+    "homePage": "https://github.com/bmen25124/SillyTavern-MCP-Client"
+}
