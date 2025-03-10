@@ -1,7 +1,44 @@
 <div class="mcp-tools-content">
     <div class="mcp-tools-header">
         <h3>MCP Tools</h3>
-        <button id="reload-all-tools" class="menu_button"><i class="fa-solid fa-sync-alt"></i> Refresh</button>
+        <div class="header-buttons">
+            <button id="add-server" class="menu_button"><i class="fa-solid fa-plus"></i> Add Server</button>
+            <button id="reload-all-tools" class="menu_button"><i class="fa-solid fa-sync-alt"></i> Refresh</button>
+        </div>
+    </div>
+
+    <!-- Add Server Form -->
+    <div id="add-server-form" class="add-server-form" style="display: none">
+        <h4>Add MCP Server</h4>
+        <div class="form-group">
+            <label for="server-input">Server Configuration</label>
+            <textarea
+                id="server-input"
+                class="text_pole"
+                rows="10"
+                placeholder='Enter server config or npx command. Examples:
+
+{
+  "mcpServers": {
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "YOUR_API_KEY_HERE"
+      }
+    }
+  }
+}
+
+Or simply:
+
+npx -y @modelcontextprotocol/server-brave-search'
+            ></textarea>
+        </div>
+        <div class="form-actions">
+            <button id="submit-server" class="menu_button"><i class="fa-solid fa-check"></i> Add</button>
+            <button id="cancel-server" class="menu_button"><i class="fa-solid fa-times"></i> Cancel</button>
+        </div>
     </div>
 
     <div id="mcp-tools-list" class="mcp-tools-list">

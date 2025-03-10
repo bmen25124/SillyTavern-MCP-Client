@@ -1,4 +1,4 @@
-import { MCPClient, McpTool } from './mcp-client';
+import { MCPClient, McpTool, ServerConfig } from './mcp-client';
 import { EventNames, POPUP_TYPE } from './types/types';
 
 const extensionName = 'SillyTavern-MCP-Client';
@@ -154,6 +154,68 @@ async function handleUIChanges(): Promise<void> {
   $('#mcp_manage_tools').on('click', async function () {
     const popupContent = await createAndShowPopup('templates/tools');
     await populateToolsList(popupContent);
+
+    // Add server form handlers
+    popupContent.querySelector('#add-server')?.addEventListener('click', () => {
+      $('#add-server-form').show();
+    });
+
+    popupContent.querySelector('#cancel-server')?.addEventListener('click', () => {
+      $('#add-server-form').hide();
+      $('#server-input').val('');
+    });
+
+    popupContent.querySelector('#submit-server')?.addEventListener('click', async () => {
+      const input = $('#server-input').val() as string;
+      if (!input) return;
+
+      let serverName = '';
+      let config: ServerConfig;
+
+      try {
+        // Check if input is JSON
+        if (input.trim().startsWith('{')) {
+          const jsonConfig = JSON.parse(input);
+          if (!jsonConfig.mcpServers) {
+            throw new Error('Invalid config: missing mcpServers object');
+          }
+
+          const serverEntry = Object.entries(jsonConfig.mcpServers)[0];
+          if (!serverEntry) {
+            throw new Error('Invalid config: no server configuration found');
+          }
+
+          serverName = serverEntry[0];
+          const serverConfig = serverEntry[1] as { command: string; args: string[]; env: Record<string, string> };
+          config = { ...serverConfig, type: 'stdio' };
+        } else {
+          // Assume it's an command
+          const parts = input.trim().split(' ');
+
+          // Get the last part of the package name for server name
+          const packageName = parts[parts.length - 1];
+          serverName = packageName.split('/').pop()!;
+          config = {
+            command: parts[0],
+            args: parts.slice(1),
+            env: {},
+            type: 'stdio',
+          };
+        }
+
+        const success = await MCPClient.addServer(serverName, config);
+        if (success) {
+          console.log(`Server "${serverName}" added successfully`);
+          $('#add-server-form').hide();
+          $('#server-input').val('');
+          await populateToolsList(popupContent);
+        } else {
+          console.error(`Failed to add server "${serverName}"`);
+        }
+      } catch (error) {
+        console.error('Error adding server:', error);
+      }
+    });
 
     // Add reload all tools button handler
     popupContent.querySelector('#reload-all-tools')?.addEventListener('click', async (e) => {

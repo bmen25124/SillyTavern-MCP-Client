@@ -8,8 +8,11 @@ export interface McpTool {
 /**
  * A class for interacting with MCP servers.
  */
-interface ServerConfig {
-  [key: string]: any;
+export interface ServerConfig {
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  type: 'stdio' | 'sse';
 }
 
 interface ServerData {
