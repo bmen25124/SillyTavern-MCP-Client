@@ -13,6 +13,12 @@ A server plugin of [MCP](https://modelcontextprotocol.io/introduction) for [Sill
 https://github.com/bmen25124/SillyTavern-MCP-Client
 ```
 
+## Demo
+
+https://github.com/user-attachments/assets/659c5112-c2d0-425d-a6fc-e4b47b517066
+
+
+
 ## FAQ
 
 ### Where can I find more servers?
