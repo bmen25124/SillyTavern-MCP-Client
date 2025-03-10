@@ -483,6 +483,34 @@ function initializeEvents() {
         return;
       }
 
+      const removeTitle = (obj: any) => {
+        if (typeof obj !== 'object' || obj === null) return;
+        if (obj.title) {
+          delete obj.title;
+        }
+
+        // Process properties if they exist
+        if (obj.properties) {
+          Object.values(obj.properties).forEach((prop) => removeTitle(prop));
+        }
+
+        // Process items for arrays
+        if (obj.items) {
+          removeTitle(obj.items);
+        }
+
+        // Process allOf, anyOf, oneOf if they exist
+        ['allOf', 'anyOf', 'oneOf'].forEach((key) => {
+          if (Array.isArray(obj[key])) {
+            obj[key].forEach((item) => removeTitle(item));
+          }
+        });
+      };
+
+      payload.tools.forEach((tool) => {
+        removeTitle(tool.function.parameters);
+      });
+
       const removeProps = (obj: any) => {
         if (typeof obj !== 'object' || obj === null) return;
         delete obj.additionalProperties;
