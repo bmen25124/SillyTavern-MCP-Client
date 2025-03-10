@@ -297,22 +297,23 @@ export class MCPClient {
         return false;
       }
 
-      // If MCP is enabled, handle server connections based on their new state
-      if (context.extensionSettings.mcp?.enabled) {
-        const allServers = await this.getServers();
-        for (const server of allServers) {
-          const isDisabled = disabledServers.includes(server.name);
-          if (isDisabled && this.isConnected(server.name)) {
-            // Disconnect if server is now disabled
-            await this.disconnect(server.name);
-          } else if (!isDisabled && !this.isConnected(server.name)) {
-            // Connect if server is now enabled
-            await this.connect(server.name, server.config);
-            if (!this.#serverTools.has(server.name)) {
-              await this.#fetchTools(server.name);
-            }
-            this.registerTools(server.name);
+      // Handle server connections based on their new state
+      const allServers = await this.getServers();
+      for (const server of allServers) {
+        const isDisabled = disabledServers.includes(server.name);
+        const isConnected = this.isConnected(server.name);
+        const shouldBeConnected = !isDisabled && context.extensionSettings.mcp?.enabled;
+
+        if (!shouldBeConnected && isConnected) {
+          // Disconnect if server should be disabled
+          await this.disconnect(server.name);
+        } else if (shouldBeConnected && !isConnected) {
+          // Connect if server should be enabled
+          await this.connect(server.name, server.config);
+          if (!this.#serverTools.has(server.name)) {
+            await this.#fetchTools(server.name);
           }
+          this.registerTools(server.name);
         }
       }
       return true;
