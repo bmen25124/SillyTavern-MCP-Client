@@ -1,11 +1,13 @@
-import { McpSseClient, McpTool } from './mcp-sse-client';
+export interface McpTool {
+  name: string;
+  description?: string;
+  inputSchema?: any;
+}
 
 /**
  * A class for interacting with MCP servers.
  */
 interface ServerConfig {
-  type?: string;
-  url?: string;
   [key: string]: any;
 }
 
@@ -25,11 +27,6 @@ export class MCPClient {
    * A map of MCP server tools.
    */
   static #serverTools: Map<string, McpTool[]> = new Map();
-
-  /**
-   * A map of SSE clients for MCP servers.
-   */
-  static #sseClients: Map<string, McpSseClient> = new Map();
 
   static async getServers(): Promise<ServerData[]> {
     const context = SillyTavern.getContext();
@@ -55,35 +52,17 @@ export class MCPClient {
   static async #fetchTools(serverName: string): Promise<boolean> {
     try {
       const context = SillyTavern.getContext();
-      let tools: McpTool[] = [];
+      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/list-tools`, {
+        method: 'GET',
+        headers: context.getRequestHeaders(),
+      });
 
-      // Check if this server uses SSE transport
-      const config = this.#connectedServers.get(serverName);
-      if (config && config.type === 'sse' && this.#sseClients.has(serverName)) {
-        // Use SSE transport
-        try {
-          const client = this.#sseClients.get(serverName)!;
-          const toolsResponse = await client.listTools();
-          tools = toolsResponse.tools || [];
-          console.log(`[MCPClient] Successfully fetched tools for server "${serverName}" via SSE:`, tools);
-        } catch (error) {
-          console.error(`[MCPClient] Error fetching tools via SSE for server "${serverName}":`, error);
-          return false;
-        }
-      } else {
-        // Use HTTP transport
-        const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/list-tools`, {
-          method: 'GET',
-          headers: context.getRequestHeaders(),
-        });
-
-        if (!response.ok) {
-          console.error(`[MCPClient] Failed to fetch tools for server "${serverName}":`, response.statusText);
-          return false;
-        }
-
-        tools = await response.json();
+      if (!response.ok) {
+        console.error(`[MCPClient] Failed to fetch tools for server "${serverName}":`, response.statusText);
+        return false;
       }
+
+      const tools: McpTool[] = await response.json();
 
       if (!Array.isArray(tools) || tools.length === 0) {
         console.log(`[MCPClient] No tools found for server "${serverName}"`);
@@ -132,8 +111,6 @@ export class MCPClient {
         return `Calling MCP tool "${tool.name}" on server "${serverName}"`;
       },
     });
-
-    console.log(`[MCPClient] Registered tool "${tool.name}" from server "${serverName}"`);
   }
 
   /**
@@ -201,12 +178,6 @@ export class MCPClient {
       if (data.success) {
         this.#connectedServers.set(name, config);
         console.log(`[MCPClient] Connected to server "${name}"`);
-
-        // If this is an SSE transport, create an SSE connection
-        if (config.type === 'sse' && config.url) {
-          await this.createSseConnection(name, config.url);
-        }
-
         return true;
       } else {
         console.error(`[MCPClient] Failed to connect to server "${name}":`, data.error);
@@ -226,11 +197,6 @@ export class MCPClient {
   static async disconnect(name: string): Promise<boolean> {
     try {
       const context = SillyTavern.getContext();
-      // If this is an SSE connection, close it
-      if (this.#sseClients.has(name)) {
-        this.closeSseConnection(name);
-      }
-
       const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${name}/stop`, {
         method: 'POST',
         headers: context.getRequestHeaders(),
@@ -267,7 +233,6 @@ export class MCPClient {
     for (const tool of tools) {
       const toolId = `mcp_${serverName}_${tool.name}`;
       context.unregisterFunctionTool(toolId);
-      console.log(`[MCPClient] Unregistered tool "${tool.name}" from server "${serverName}"`);
     }
 
     this.#serverTools.delete(serverName);
@@ -363,85 +328,6 @@ export class MCPClient {
   }
 
   /**
-   * Creates an SSE connection to an MCP server.
-   * @param serverName The name of the server to connect to.
-   * @param url The URL to connect to.
-   * @returns Whether the connection was successful.
-   */
-  static async createSseConnection(serverName: string, url: string): Promise<boolean> {
-    try {
-      if (this.#sseClients.has(serverName)) {
-        console.log(`[MCPClient] SSE connection for server "${serverName}" already exists`);
-        return true;
-      }
-
-      console.log(`[MCPClient] Creating SSE connection for server "${serverName}" to URL "${url}"`);
-
-      // Create a new SSE client
-      const client = new McpSseClient(url);
-
-      // Connect to the server
-      const success = await client.connect();
-
-      if (!success) {
-        throw new Error(`Failed to connect to MCP server "${serverName}" via SSE`);
-      }
-
-      // Store the client
-      this.#sseClients.set(serverName, client);
-
-      console.log(`[MCPClient] SSE connection established for server "${serverName}"`);
-
-      return true;
-    } catch (error) {
-      console.error(`[MCPClient] Error creating SSE connection for server "${serverName}":`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Closes an SSE connection to an MCP server.
-   * @param serverName The name of the server to disconnect from.
-   */
-  static closeSseConnection(serverName: string): void {
-    const client = this.#sseClients.get(serverName);
-    if (!client) return;
-
-    try {
-      // Close the SSE client
-      client.close();
-
-      // Remove the client from the map
-      this.#sseClients.delete(serverName);
-
-      console.log(`[MCPClient] Closed SSE connection for server "${serverName}"`);
-    } catch (error) {
-      console.error(`[MCPClient] Error closing SSE connection for server "${serverName}":`, error);
-    }
-  }
-
-  /**
-   * Sends a JSON-RPC request to an MCP server via SSE.
-   * @param serverName The name of the server to send the request to.
-   * @param method Method name
-   * @param params Method parameters
-   * @returns Response from the server
-   */
-  static async sendSseJsonRpcRequest(serverName: string, method: string, params: any): Promise<any> {
-    const client = this.#sseClients.get(serverName);
-    if (!client) {
-      throw new Error(`No SSE connection for server "${serverName}"`);
-    }
-
-    try {
-      return await client.sendJsonRpcRequest(method, params);
-    } catch (error) {
-      console.error(`[MCPClient] Error sending SSE request for server "${serverName}":`, error);
-      throw error;
-    }
-  }
-
-  /**
    * Calls a tool on an MCP server.
    * @param serverName The name of the server to call the tool on.
    * @param toolName The name of the tool to call.
@@ -455,54 +341,23 @@ export class MCPClient {
         throw new Error(`MCP server "${serverName}" is not connected.`);
       }
 
-      // Check if this server uses SSE transport
-      const config = this.#connectedServers.get(serverName);
-      if (config && config.type === 'sse' && this.#sseClients.has(serverName)) {
-        // Use SSE transport
-        const response = await this.sendSseJsonRpcRequest(serverName, 'tools/call', {
-          name: toolName,
+      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/call-tool`, {
+        method: 'POST',
+        body: JSON.stringify({
+          toolName,
           arguments: args,
-        });
+        }),
+        headers: context.getRequestHeaders(),
+      });
 
-        if (response.result) {
-          console.log(
-            `[MCPClient] Successfully called tool "${toolName}" on server "${serverName}" via SSE:`,
-            response.result,
-          );
-          return response.result;
-        } else if (response.error) {
-          console.error(
-            `[MCPClient] Failed to call tool "${toolName}" on server "${serverName}" via SSE:`,
-            response.error,
-          );
-          throw new Error(response.error.message || 'Unknown error');
-        } else {
-          console.error(
-            `[MCPClient] Unexpected response from tool "${toolName}" on server "${serverName}" via SSE:`,
-            response,
-          );
-          throw new Error('Unexpected response format');
-        }
+      const data = await response.json();
+
+      if (data.success) {
+        console.log(`[MCPClient] Successfully called tool "${toolName}" on server "${serverName}":`, data.result);
+        return data.result;
       } else {
-        // Use HTTP transport
-        const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/call-tool`, {
-          method: 'POST',
-          body: JSON.stringify({
-            toolName,
-            arguments: args,
-          }),
-          headers: context.getRequestHeaders(),
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          console.log(`[MCPClient] Successfully called tool "${toolName}" on server "${serverName}":`, data.result);
-          return data.result;
-        } else {
-          console.error(`[MCPClient] Failed to call tool "${toolName}" on server "${serverName}":`, data.error);
-          throw new Error(data.error || 'Unknown error');
-        }
+        console.error(`[MCPClient] Failed to call tool "${toolName}" on server "${serverName}":`, data.error);
+        throw new Error(data.error || 'Unknown error');
       }
     } catch (error) {
       console.error(`[MCPClient] Error calling tool "${toolName}" on server "${serverName}":`, error);
