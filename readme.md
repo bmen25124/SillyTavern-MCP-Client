@@ -1,5 +1,8 @@
 An extension of [MCP](https://modelcontextprotocol.io/introduction) for [SillyTavern](https://docs.sillytavern.app/). A possible solution of https://github.com/SillyTavern/SillyTavern/issues/3335
 
+> You need to be on `staging` branch to run this extension.
+
+
 > Make sure you only installing trusted MCP servers.
 
 ![manage tools](images/manage_tools.png)
@@ -12,6 +15,8 @@ An extension of [MCP](https://modelcontextprotocol.io/introduction) for [SillyTa
 ```txt
 https://github.com/bmen25124/SillyTavern-MCP-Client
 ```
+3. Install MCP servers via extension menu.
+4. Enable `Enable function calling` in sampler settings.
 
 ## Demo
 
