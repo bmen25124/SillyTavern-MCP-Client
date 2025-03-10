@@ -1,4 +1,4 @@
-import { MCPClient } from './mcp-client';
+import { MCPClient, McpTool } from './mcp-client';
 import { EventNames, POPUP_TYPE } from './types/types';
 
 const extensionName = 'SillyTavern-MCP-Client';
@@ -96,10 +96,10 @@ async function handleUIChanges(): Promise<void> {
         });
 
         // Add tools if available
-        const tools = MCPClient.getServerTools(server.name);
+        const tools = await MCPClient.getServerTools(server.name);
         if (tools && tools.length > 0) {
           const toolsList = serverSection.querySelector('.tools-list') as HTMLElement;
-          tools.forEach((tool) => {
+          tools.forEach((tool: McpTool) => {
             const toolItem = document.createElement('div');
             toolItem.className = 'tool-item';
             toolItem.innerHTML = `
@@ -131,7 +131,7 @@ async function handleUIChanges(): Promise<void> {
       if (!target.classList.contains('tool-toggle')) return;
 
       const serverName = target.dataset.server!;
-      const tools = MCPClient.getServerTools(serverName);
+      const tools = await MCPClient.getServerTools(serverName);
       if (!tools) return;
 
       // Collect all disabled tools for this server

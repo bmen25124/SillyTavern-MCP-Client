@@ -16,6 +16,7 @@ interface ServerData {
   name: string;
   config: ServerConfig;
   enabled: boolean;
+  cachedTools: Record<string, McpTool[]>;
 }
 const PLUGIN_ID = 'mcp';
 
@@ -54,27 +55,27 @@ export class MCPClient {
   static async #fetchTools(serverName: string): Promise<boolean> {
     try {
       const context = SillyTavern.getContext();
-      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/list-tools`, {
-        method: 'GET',
-        headers: context.getRequestHeaders(),
-      });
+      let tools: McpTool[] = [];
 
-      if (!response.ok) {
-        console.error(`[MCPClient] Failed to fetch tools for server "${serverName}":`, response.statusText);
-        return false;
+      try {
+        const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/list-tools`, {
+          method: 'GET',
+          headers: context.getRequestHeaders(),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data)) {
+            tools = data;
+          }
+        }
+      } catch (error) {
+        console.error(`[MCPClient] Failed to fetch tools for server "${serverName}":`, error);
       }
 
-      const tools: McpTool[] = await response.json();
-
-      if (!Array.isArray(tools) || tools.length === 0) {
-        console.log(`[MCPClient] No tools found for server "${serverName}"`);
-        return true;
-      }
-
-      // Store the tools for this server
+      // Always store tools in cache, even if empty
       this.#serverTools.set(serverName, tools);
-
-      return true;
+      return tools.length > 0;
     } catch (error) {
       console.error(`[MCPClient] Error fetching tools for server "${serverName}":`, error);
       return false;
@@ -382,8 +383,24 @@ export class MCPClient {
    * @param serverName The name of the server to get tools for.
    * @returns Array of tools for the server, or undefined if server has no tools.
    */
-  static getServerTools(serverName: string): McpTool[] | undefined {
-    return this.#serverTools.get(serverName);
+  static async getServerTools(serverName: string): Promise<McpTool[] | undefined> {
+    // First check in-memory cache
+    const cachedTools = this.#serverTools.get(serverName);
+    if (cachedTools) {
+      return cachedTools;
+    }
+
+    // Try fetching from API
+    try {
+      const success = await this.#fetchTools(serverName);
+      if (success) {
+        return this.#serverTools.get(serverName);
+      }
+    } catch (error) {
+      console.error(`[MCPClient] Error fetching tools for server "${serverName}":`, error);
+    }
+
+    return undefined;
   }
 
   /**
@@ -414,7 +431,7 @@ export class MCPClient {
             tool._enabled = !disabledTools.includes(tool.name);
 
             // If MCP is enabled, handle tool registration
-            if (context.extensionSettings.mcp?.enabled) {
+            if (context.extensionSettings.mcp?.enabled && this.isConnected(serverName)) {
               const toolId = `mcp_${serverName}_${tool.name}`;
               if (wasEnabled && !tool._enabled) {
                 // Tool was enabled but now disabled - unregister it
