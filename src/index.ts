@@ -1,5 +1,6 @@
 import { MCPClient, McpTool, ServerConfig } from './mcp-client';
 import { EventNames, POPUP_TYPE } from './types/types';
+import { st_echo } from './config';
 
 const extensionName = 'SillyTavern-MCP-Client';
 const context = SillyTavern.getContext();
@@ -136,6 +137,7 @@ async function handleUIChanges(): Promise<void> {
             labelSpan.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Failed';
             serverToggle.checked = !serverToggle.checked;
             serverSection.classList.toggle('disabled', !serverToggle.checked);
+            await st_echo('error', `Failed to ${serverToggle.checked ? 'enable' : 'disable'} server "${server.name}"`);
           }
 
           // Reset label after delay
@@ -162,9 +164,11 @@ async function handleUIChanges(): Promise<void> {
                 await populateToolsList(popupContent);
               } else {
                 console.error(`Failed to remove server "${name}"`);
+                await st_echo('error', `Failed to remove server "${name}"`);
               }
             } catch (error) {
               console.error('Error removing server:', error);
+              await st_echo('error', `Error removing server "${name}"`);
             }
           }
         });
@@ -255,14 +259,17 @@ async function handleUIChanges(): Promise<void> {
         const success = await MCPClient.addServer(serverName, config);
         if (success) {
           console.log(`Server "${serverName}" added successfully`);
+          await st_echo('success', `Server "${serverName}" added successfully`);
           $('#add-server-form').hide();
           $('#server-input').val('');
           await populateToolsList(popupContent);
         } else {
           console.error(`Failed to add server "${serverName}"`);
+          await st_echo('error', `Failed to add server "${serverName}"`);
         }
       } catch (error) {
         console.error('Error adding server:', error);
+        await st_echo('error', `Error adding server: ${(error as Error).message}`);
       }
     });
 
@@ -283,6 +290,7 @@ async function handleUIChanges(): Promise<void> {
           button.innerHTML = '<i class="fa-solid fa-check"></i> Success';
           button.style.background = 'var(--active)';
           console.log('Successfully reloaded all tools');
+          await st_echo('success', 'Successfully reloaded all tools');
 
           // Refresh the tools list
           await populateToolsList(popupContent);
@@ -291,6 +299,7 @@ async function handleUIChanges(): Promise<void> {
           button.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Failed';
           button.style.background = 'var(--warning)';
           console.error('Failed to reload one or more tools');
+          await st_echo('error', 'Failed to reload one or more tools');
         }
 
         // Reset button after delay
@@ -303,6 +312,7 @@ async function handleUIChanges(): Promise<void> {
         console.error('Error reloading tools:', error);
         button.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Error';
         button.style.background = 'var(--warning)';
+        await st_echo('error', 'Error reloading tools');
 
         // Reset button after delay
         setTimeout(() => {
@@ -350,6 +360,7 @@ async function handleUIChanges(): Promise<void> {
         // Show error state and revert toggle
         labelSpan.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Failed';
         target.checked = !target.checked;
+        await st_echo('error', `Failed to update tool state`);
       }
 
       // Reset label after delay
