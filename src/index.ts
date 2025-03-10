@@ -37,16 +37,36 @@ async function handleUIChanges(): Promise<void> {
   $('#mcp_enabled')
     .prop('checked', context.extensionSettings.mcp.enabled)
     .on('change', async function () {
-      const enabled: boolean = $(this).prop('checked');
+      const toggle = $(this);
+      const label = toggle.parent('.checkbox_label');
+      const labelSpan = label.find('span');
+      const originalSpanText = labelSpan.text();
+
+      // Show loading state
+      toggle.prop('disabled', true);
+      labelSpan.html('<i class="fa-solid fa-spinner fa-spin"></i> Updating...');
+
+      const enabled: boolean = toggle.prop('checked');
       context.extensionSettings.mcp.enabled = enabled;
       context.saveSettingsDebounced();
 
       // Use MCPClient's handleTools method to manage tool registration
       try {
         await MCPClient.handleTools(enabled);
+        // Show success state briefly
+        labelSpan.html('<i class="fa-solid fa-check"></i> Updated');
       } catch (error) {
         console.error(`[MCPClient] Error handling MCP tools:`, error);
+        // Show error state and revert toggle
+        labelSpan.html('<i class="fa-solid fa-exclamation-triangle"></i> Failed');
+        st_echo('error', `[MCPClient] Error handling MCP tools: ${error}`);
       }
+
+      // Reset label after delay
+      setTimeout(() => {
+        labelSpan.text(originalSpanText);
+        toggle.prop('disabled', false);
+      }, 1500);
     });
 
   /**
