@@ -108,16 +108,41 @@ async function handleUIChanges(): Promise<void> {
 
         // Add server toggle handler
         serverToggle.addEventListener('change', async () => {
-          const enabled = serverToggle.checked;
-          const section = serverToggle.closest('.server-tools-section') as HTMLElement;
-          section.classList.toggle('disabled', !enabled);
+          const serverSection = serverToggle.closest('.server-tools-section') as HTMLElement;
+          const label = serverToggle.closest('.checkbox_label') as HTMLElement;
 
-          // Get all servers and update disabled list
-          const disabledServers = Array.from(popupContent.querySelectorAll('.server-toggle'))
-            .filter((toggle) => !(toggle as HTMLInputElement).checked)
-            .map((toggle) => (toggle as HTMLInputElement & { dataset: DOMStringMap }).dataset.server!);
+          // Show loading state
+          const labelSpan = label.querySelector('span')!;
+          const originalSpanText = labelSpan.textContent;
+          serverToggle.disabled = true;
+          labelSpan.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
 
-          await MCPClient.updateDisabledServers(disabledServers);
+          try {
+            const enabled = serverToggle.checked;
+            serverSection.classList.toggle('disabled', !enabled);
+
+            // Get all servers and update disabled list
+            const disabledServers = Array.from(popupContent.querySelectorAll('.server-toggle'))
+              .filter((toggle) => !(toggle as HTMLInputElement).checked)
+              .map((toggle) => (toggle as HTMLInputElement & { dataset: DOMStringMap }).dataset.server!);
+
+            await MCPClient.updateDisabledServers(disabledServers);
+
+            // Show success state briefly
+            labelSpan.innerHTML = '<i class="fa-solid fa-check"></i> Updated';
+          } catch (error) {
+            console.error('Error updating server state:', error);
+            // Show error state and revert toggle
+            labelSpan.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Failed';
+            serverToggle.checked = !serverToggle.checked;
+            serverSection.classList.toggle('disabled', !serverToggle.checked);
+          }
+
+          // Reset label after delay
+          setTimeout(() => {
+            labelSpan.textContent = originalSpanText;
+            serverToggle.disabled = false;
+          }, 1500);
         });
 
         // Add delete server handler
@@ -293,21 +318,45 @@ async function handleUIChanges(): Promise<void> {
       const target = e.target as HTMLInputElement;
       if (!target.classList.contains('tool-toggle')) return;
 
-      const serverName = target.dataset.server!;
-      const tools = await MCPClient.getServerTools(serverName);
-      if (!tools) return;
+      const label = target.closest('.checkbox_label') as HTMLElement;
+      const labelSpan = label.querySelector('span')!;
+      const originalSpanText = labelSpan.textContent;
 
-      // Collect all disabled tools for this server
-      const disabledTools = tools
-        .filter((tool) => {
-          const checkbox = popupContent.querySelector(
-            `input.tool-toggle[data-server="${serverName}"][data-tool="${tool.name}"]`,
-          ) as HTMLInputElement;
-          return !checkbox.checked;
-        })
-        .map((tool) => tool.name);
+      // Show loading state
+      target.disabled = true;
+      labelSpan.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
 
-      await MCPClient.updateDisabledTools(serverName, disabledTools);
+      try {
+        const serverName = target.dataset.server!;
+        const tools = await MCPClient.getServerTools(serverName);
+        if (!tools) throw new Error('Could not get server tools');
+
+        // Collect all disabled tools for this server
+        const disabledTools = tools
+          .filter((tool) => {
+            const checkbox = popupContent.querySelector(
+              `input.tool-toggle[data-server="${serverName}"][data-tool="${tool.name}"]`,
+            ) as HTMLInputElement;
+            return !checkbox.checked;
+          })
+          .map((tool) => tool.name);
+
+        await MCPClient.updateDisabledTools(serverName, disabledTools);
+
+        // Show success state briefly
+        labelSpan.innerHTML = '<i class="fa-solid fa-check"></i> Updated';
+      } catch (error) {
+        console.error('Error updating tool state:', error);
+        // Show error state and revert toggle
+        labelSpan.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Failed';
+        target.checked = !target.checked;
+      }
+
+      // Reset label after delay
+      setTimeout(() => {
+        labelSpan.textContent = originalSpanText;
+        target.disabled = false;
+      }, 1500);
     });
   });
 
