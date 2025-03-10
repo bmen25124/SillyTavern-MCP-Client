@@ -17,10 +17,30 @@
         border-radius: 5px;
         padding: 10px;
 
-        h4 {
-            margin: 0 0 10px 0;
-            color: var(--SmartThemeEmColor);
-            font-size: calc(var(--mainFontSize) * 1.1);
+        &.disabled {
+            opacity: 0.6;
+            pointer-events: none;
+
+            .tools-list {
+                display: none;
+            }
+        }
+
+        .server-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+
+            h4 {
+                margin: 0;
+                color: var(--SmartThemeEmColor);
+                font-size: calc(var(--mainFontSize) * 1.1);
+            }
+
+            .checkbox_label {
+                margin: 0;
+            }
         }
     }
 
@@ -33,6 +53,9 @@
 
     .tool-header {
         margin-bottom: 5px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
 
     .tool-name {

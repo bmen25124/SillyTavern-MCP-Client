@@ -30,7 +30,12 @@ declare global {
       formatMessage: (parameters: Record<string, unknown>) => Promise<string>;
     }) => void;
     unregisterFunctionTool: (name: string) => void;
-    callGenericPopup: (content: JQuery<HTMLElement> | string | Element, type: POPUP_TYPE, inputValue?: string, popupOptions?: PopupOptions) => Promise<POPUP_RESULT | string | (boolean | null)>;
+    callGenericPopup: (
+      content: JQuery<HTMLElement> | string | Element,
+      type: POPUP_TYPE,
+      inputValue?: string,
+      popupOptions?: PopupOptions,
+    ) => Promise<POPUP_RESULT | string | (boolean | null)>;
   }
 
   const SillyTavern: {

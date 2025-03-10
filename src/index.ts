@@ -45,50 +45,107 @@ async function handleUIChanges(): Promise<void> {
     });
 
   $('#mcp_manage_tools').on('click', async function () {
-    const template = await context.renderExtensionTemplateAsync(
-      `third-party/${extensionName}`,
-      'templates/tools',
-    );
+    const content = await context.renderExtensionTemplateAsync(`third-party/${extensionName}`, 'templates/tools');
 
-    const popup = $(template);
-    const connectedServers = MCPClient.getConnectedServers();
-    const toolsList = popup.find('#mcp-tools-list');
+    // Create popup content
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = content;
+    const popupContent = tempDiv.firstElementChild as HTMLElement;
+
+    // Show popup first so template is in the DOM
+    context.callGenericPopup($(popupContent), POPUP_TYPE.DISPLAY);
+
+    const toolsList = popupContent.querySelector('#mcp-tools-list')!;
+    const serverTemplate = popupContent.querySelector('#server-section-template') as HTMLTemplateElement;
 
     // Clear and populate tools list
-    toolsList.empty();
+    toolsList.innerHTML = '';
 
-    if (connectedServers.length === 0) {
-      toolsList.append('<div class="no-servers">No connected MCP servers found.</div>');
+    const allServers = await MCPClient.getServers();
+
+    if (allServers.length === 0) {
+      const noServers = document.createElement('div');
+      noServers.className = 'no-servers';
+      noServers.textContent = 'No MCP servers found.';
+      toolsList.appendChild(noServers);
     } else {
-      for (const serverName of connectedServers) {
-        const tools = MCPClient.getServerTools(serverName);
+      for (const server of allServers) {
+        // Clone server template
+        const serverNode = serverTemplate.content.cloneNode(true) as DocumentFragment;
+        const serverSection = serverNode.querySelector('.server-tools-section')!;
+        if (!server.enabled) serverSection.classList.add('disabled');
+
+        // Set server name and enabled state
+        (serverSection.querySelector('h4') as HTMLHeadingElement).textContent = server.name;
+        const serverToggle = serverSection.querySelector('.server-toggle') as HTMLInputElement;
+        serverToggle.checked = server.enabled;
+        (serverToggle as HTMLInputElement & { dataset: DOMStringMap }).dataset.server = server.name;
+
+        // Add server toggle handler
+        serverToggle.addEventListener('change', async () => {
+          const enabled = serverToggle.checked;
+          const section = serverToggle.closest('.server-tools-section') as HTMLElement;
+          section.classList.toggle('disabled', !enabled);
+
+          // Get all servers and update disabled list
+          const disabledServers = Array.from(popupContent.querySelectorAll('.server-toggle'))
+            .filter((toggle) => !(toggle as HTMLInputElement).checked)
+            .map((toggle) => (toggle as HTMLInputElement & { dataset: DOMStringMap }).dataset.server!);
+
+          await MCPClient.updateDisabledServers(disabledServers);
+        });
+
+        // Add tools if available
+        const tools = MCPClient.getServerTools(server.name);
         if (tools && tools.length > 0) {
-          const serverSection = $(`
-            <div class="server-tools-section">
-              <h4>${serverName}</h4>
-              <div class="tools-list"></div>
-            </div>
-          `);
-
-          const toolsList = serverSection.find('.tools-list');
-          tools.forEach(tool => {
-            const toolItem = $(`
-              <div class="tool-item">
-                <div class="tool-header">
-                  <span class="tool-name">${tool.name}</span>
-                </div>
-                <div class="tool-description">${tool.description || 'No description available'}</div>
+          const toolsList = serverSection.querySelector('.tools-list') as HTMLElement;
+          tools.forEach((tool) => {
+            const toolItem = document.createElement('div');
+            toolItem.className = 'tool-item';
+            toolItem.innerHTML = `
+              <div class="tool-header">
+                <span class="tool-name">${tool.name}</span>
+                <label class="checkbox_label">
+                  <input type="checkbox" class="tool-toggle" ${tool._enabled ? 'checked' : ''} />
+                  <span>Enable</span>
+                </label>
               </div>
-            `);
-            toolsList.append(toolItem);
-          });
+              <div class="tool-description">${tool.description || 'No description available'}</div>
+            `;
 
-          popup.find('#mcp-tools-list').append(serverSection);
+            const toolToggle = toolItem.querySelector('.tool-toggle') as HTMLInputElement & { dataset: DOMStringMap };
+            toolToggle.dataset.server = server.name;
+            toolToggle.dataset.tool = tool.name;
+
+            toolsList.appendChild(toolItem);
+          });
         }
+
+        toolsList.appendChild(serverSection);
       }
     }
 
-    context.callGenericPopup(popup, POPUP_TYPE.DISPLAY);
+    // Add toggle handler for tools after content is populated
+    popupContent.addEventListener('change', async (e) => {
+      const target = e.target as HTMLInputElement;
+      if (!target.classList.contains('tool-toggle')) return;
+
+      const serverName = target.dataset.server!;
+      const tools = MCPClient.getServerTools(serverName);
+      if (!tools) return;
+
+      // Collect all disabled tools for this server
+      const disabledTools = tools
+        .filter((tool) => {
+          const checkbox = popupContent.querySelector(
+            `input.tool-toggle[data-server="${serverName}"][data-tool="${tool.name}"]`,
+          ) as HTMLInputElement;
+          return !checkbox.checked;
+        })
+        .map((tool) => tool.name);
+
+      await MCPClient.updateDisabledTools(serverName, disabledTools);
+    });
   });
 
   // Initial tool registration if enabled

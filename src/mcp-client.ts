@@ -2,6 +2,7 @@ export interface McpTool {
   name: string;
   description?: string;
   inputSchema?: any;
+  _enabled?: boolean;
 }
 
 /**
@@ -14,6 +15,7 @@ interface ServerConfig {
 interface ServerData {
   name: string;
   config: ServerConfig;
+  enabled: boolean;
 }
 const PLUGIN_ID = 'mcp';
 
@@ -82,11 +84,12 @@ export class MCPClient {
   static registerTools(name: string): void {
     const tools = this.#serverTools.get(name);
     if (tools) {
-      for (const tool of tools) {
+      const enabledTools = tools.filter((tool) => tool._enabled);
+      for (const tool of enabledTools) {
         this.#registerMcpTool(name, tool);
       }
 
-      console.log(`[MCPClient] Registered ${tools.length} tools for server "${name}"`);
+      console.log(`[MCPClient] Registered ${enabledTools.length} enabled tools for server "${name}"`);
     }
   }
 
@@ -204,18 +207,14 @@ export class MCPClient {
 
       const data = await response.json();
 
-      if (data.success) {
-        this.#connectedServers.delete(name);
-        console.log(`[MCPClient] Disconnected from server "${name}"`);
+      const success = data.success;
+      this.#connectedServers.delete(name);
+      console.log(`[MCPClient] Disconnected from server "${name}"`);
 
-        // Unregister all tools for this server
-        this.#unregisterServerTools(name);
+      // Unregister all tools for this server
+      this.#unregisterServerTools(name);
 
-        return true;
-      } else {
-        console.error(`[MCPClient] Failed to disconnect from server "${name}":`, data.error);
-        return false;
-      }
+      return success;
     } catch (error) {
       console.error(`[MCPClient] Error disconnecting from server "${name}":`, error);
       return false;
@@ -281,32 +280,83 @@ export class MCPClient {
   }
 
   /**
+   * Updates the list of disabled servers
+   * @param disabledServers Array of server names that should be disabled
+   * @returns Whether the update was successful
+   */
+  static async updateDisabledServers(disabledServers: string[]): Promise<boolean> {
+    try {
+      const context = SillyTavern.getContext();
+      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/disabled`, {
+        method: 'POST',
+        headers: context.getRequestHeaders(),
+        body: JSON.stringify({
+          disabledServers,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // If MCP is enabled, handle server connections based on their new state
+        if (context.extensionSettings.mcp?.enabled) {
+          const allServers = await this.getServers();
+          for (const server of allServers) {
+            const isDisabled = disabledServers.includes(server.name);
+            if (isDisabled && this.isConnected(server.name)) {
+              // Disconnect if server is now disabled
+              await this.disconnect(server.name);
+            } else if (!isDisabled && !this.isConnected(server.name)) {
+              // Connect if server is now enabled
+              await this.connect(server.name, server.config);
+              if (!this.#serverTools.has(server.name)) {
+                await this.#fetchTools(server.name);
+              }
+              this.registerTools(server.name);
+            }
+          }
+        }
+        return true;
+      } else {
+        console.error('[MCPClient] Failed to update disabled servers:', data.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('[MCPClient] Error updating disabled servers:', error);
+      return false;
+    }
+  }
+
+  /**
    * Handles MCP tools and server connections
    * @param enabled Whether to enable or disable MCP functionality
    */
-  static async handleTools(enabled: boolean): Promise<void> {
+  static async handleTools(mcpEnabled: boolean): Promise<void> {
     const context = SillyTavern.getContext();
-    if (context.extensionSettings.mcp?.enabled !== enabled) {
+    if (context.extensionSettings.mcp?.enabled !== mcpEnabled) {
       return;
     }
 
-    if (enabled) {
+    if (mcpEnabled) {
       // For each configured server
       const allServers = await this.getServers();
       for (const server of allServers) {
-        const { name, config } = server;
-        // Connect to server if not already connected
-        if (!this.isConnected(name)) {
-          await this.connect(name, config);
-        }
+        const { name, config, enabled } = server;
+        // Only connect to enabled servers
+        if (enabled) {
+          // Connect to server if not already connected
+          if (!this.isConnected(name)) {
+            await this.connect(name, config);
+          }
 
-        // Fetch tools if we don't have them cached
-        if (!this.#serverTools.has(name)) {
-          await this.#fetchTools(name);
-        }
+          // Fetch tools if we don't have them cached
+          if (!this.#serverTools.has(name)) {
+            await this.#fetchTools(name);
+          }
 
-        // Register tools
-        this.registerTools(name);
+          // Register tools
+          this.registerTools(name);
+        }
       }
     } else {
       // When disabling, disconnect servers and unregister tools
@@ -334,6 +384,57 @@ export class MCPClient {
    */
   static getServerTools(serverName: string): McpTool[] | undefined {
     return this.#serverTools.get(serverName);
+  }
+
+  /**
+   * Updates the list of disabled tools for a server
+   * @param serverName The name of the server
+   * @param disabledTools Array of tool names that should be disabled
+   * @returns Whether the update was successful
+   */
+  static async updateDisabledTools(serverName: string, disabledTools: string[]): Promise<boolean> {
+    try {
+      const context = SillyTavern.getContext();
+      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/disabled-tools`, {
+        method: 'POST',
+        headers: context.getRequestHeaders(),
+        body: JSON.stringify({
+          disabledTools,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update the tools' states in our cache
+        const tools = this.#serverTools.get(serverName);
+        if (tools) {
+          tools.forEach((tool) => {
+            const wasEnabled = tool._enabled;
+            tool._enabled = !disabledTools.includes(tool.name);
+
+            // If MCP is enabled, handle tool registration
+            if (context.extensionSettings.mcp?.enabled) {
+              const toolId = `mcp_${serverName}_${tool.name}`;
+              if (wasEnabled && !tool._enabled) {
+                // Tool was enabled but now disabled - unregister it
+                context.unregisterFunctionTool(toolId);
+              } else if (!wasEnabled && tool._enabled) {
+                // Tool was disabled but now enabled - register it
+                this.#registerMcpTool(serverName, tool);
+              }
+            }
+          });
+        }
+        return true;
+      } else {
+        console.error(`[MCPClient] Failed to update disabled tools for server "${serverName}":`, data.error);
+        return false;
+      }
+    } catch (error) {
+      console.error(`[MCPClient] Error updating disabled tools for server "${serverName}":`, error);
+      return false;
+    }
   }
 
   /**

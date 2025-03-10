@@ -16,10 +16,26 @@
   border-radius: 5px;
   padding: 10px;
 }
-.mcp-tools-content .server-tools-section h4 {
-  margin: 0 0 10px 0;
+.mcp-tools-content .server-tools-section.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.mcp-tools-content .server-tools-section.disabled .tools-list {
+  display: none;
+}
+.mcp-tools-content .server-tools-section .server-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.mcp-tools-content .server-tools-section .server-header h4 {
+  margin: 0;
   color: var(--SmartThemeEmColor);
   font-size: calc(var(--mainFontSize) * 1.1);
+}
+.mcp-tools-content .server-tools-section .server-header .checkbox_label {
+  margin: 0;
 }
 .mcp-tools-content .tool-item {
   padding: 10px;
@@ -29,6 +45,9 @@
 }
 .mcp-tools-content .tool-header {
   margin-bottom: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .mcp-tools-content .tool-name {
   font-weight: bold;
