@@ -104,12 +104,13 @@
         }
 
         .tools-list {
-            max-height: 1000px;
+            max-height: none;
             opacity: 1;
             transform-origin: top;
             transform: scaleY(1);
             transition: all var(--animation-duration-slow) ease-out;
             will-change: transform, opacity, max-height;
+            overflow-y: auto;
 
             &.collapsed {
                 max-height: 0;
