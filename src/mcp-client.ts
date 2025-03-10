@@ -491,4 +491,44 @@ export class MCPClient {
       throw error;
     }
   }
+
+  /**
+   * Reloads tools for all connected MCP servers.
+   * This will trigger a reload of tools on each server and update the local tool cache.
+   * @returns Whether all servers were reloaded successfully.
+   */
+  static async reloadAllTools(): Promise<boolean> {
+    try {
+      const context = SillyTavern.getContext();
+      const connectedServers = await this.getServers();
+      let allSuccess = true;
+
+      for (const server of connectedServers) {
+        const { name: serverName } = server;
+        try {
+          // Request server to reload its tools
+          const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/reload-tools`, {
+            method: 'POST',
+            headers: context.getRequestHeaders(),
+          });
+
+          const data = await response.json();
+
+          // Re-fetch tools for this server
+          await this.#fetchTools(serverName);
+          // Re-register tools
+          this.registerTools(serverName);
+          console.log(`[MCPClient] Successfully reloaded tools for server "${serverName}"`);
+        } catch (error) {
+          console.error(`[MCPClient] Error reloading tools for server "${serverName}":`, error);
+          allSuccess = false;
+        }
+      }
+
+      return allSuccess;
+    } catch (error) {
+      console.error('[MCPClient] Error in reloadAllTools:', error);
+      return false;
+    }
+  }
 }

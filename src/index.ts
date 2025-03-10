@@ -137,6 +137,16 @@ async function handleUIChanges(): Promise<void> {
       }
     }
 
+    // Add reload all tools button handler
+    popupContent.querySelector('#reload-all-tools')?.addEventListener('click', async () => {
+      const success = await MCPClient.reloadAllTools();
+      if (success) {
+        console.log('Successfully reloaded all tools');
+      } else {
+        console.error('Failed to reload one or more tools');
+      }
+    });
+
     // Add toggle handler for tools after content is populated
     popupContent.addEventListener('change', async (e) => {
       const target = e.target as HTMLInputElement;
