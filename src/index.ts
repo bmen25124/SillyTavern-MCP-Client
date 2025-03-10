@@ -138,12 +138,46 @@ async function handleUIChanges(): Promise<void> {
     }
 
     // Add reload all tools button handler
-    popupContent.querySelector('#reload-all-tools')?.addEventListener('click', async () => {
-      const success = await MCPClient.reloadAllTools();
-      if (success) {
-        console.log('Successfully reloaded all tools');
-      } else {
-        console.error('Failed to reload one or more tools');
+    popupContent.querySelector('#reload-all-tools')?.addEventListener('click', async (e) => {
+      const button = e.currentTarget as HTMLButtonElement;
+      const originalText = button.innerHTML;
+
+      // Show loading state
+      button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Refreshing';
+      button.disabled = true;
+
+      try {
+        const success = await MCPClient.reloadAllTools();
+
+        if (success) {
+          // Show success state
+          button.innerHTML = '<i class="fa-solid fa-check"></i> Success';
+          button.style.background = 'var(--active)';
+          console.log('Successfully reloaded all tools');
+        } else {
+          // Show error state
+          button.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Failed';
+          button.style.background = 'var(--warning)';
+          console.error('Failed to reload one or more tools');
+        }
+
+        // Reset button after delay
+        setTimeout(() => {
+          button.innerHTML = originalText;
+          button.style.background = '';
+          button.disabled = false;
+        }, 1500);
+      } catch (error) {
+        console.error('Error reloading tools:', error);
+        button.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Error';
+        button.style.background = 'var(--warning)';
+
+        // Reset button after delay
+        setTimeout(() => {
+          button.innerHTML = originalText;
+          button.style.background = '';
+          button.disabled = false;
+        }, 1500);
       }
     });
 
