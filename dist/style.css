@@ -25,6 +25,27 @@
   align-items: center;
   margin-bottom: 10px;
 }
+.mcp-tools-content .server-tools-section .server-header.clickable {
+  cursor: pointer;
+  user-select: none;
+  padding: 5px;
+  margin: -5px;
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+.mcp-tools-content .server-tools-section .server-header.clickable:hover {
+  background: var(--black30a);
+}
+.mcp-tools-content .server-tools-section .server-header .header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mcp-tools-content .server-tools-section .server-header .header-content i {
+  transition: transform 0.3s ease;
+  font-size: 0.8em;
+  color: var(--SmartThemeEmColor);
+}
 .mcp-tools-content .server-tools-section .server-header h4 {
   margin: 0;
   color: var(--SmartThemeEmColor);
@@ -32,6 +53,22 @@
 }
 .mcp-tools-content .server-tools-section .server-header .checkbox_label {
   margin: 0;
+}
+.mcp-tools-content .server-tools-section .tools-list {
+  max-height: 1000px;
+  opacity: 1;
+  transform-origin: top;
+  transform: scaleY(1);
+  transition: all 0.3s ease-out;
+  will-change: transform, opacity, max-height;
+}
+.mcp-tools-content .server-tools-section .tools-list.collapsed {
+  max-height: 0;
+  opacity: 0;
+  transform: scaleY(0);
+}
+.mcp-tools-content .server-tools-section .tools-list.collapsed + .server-header i {
+  transform: rotate(-90deg);
 }
 .mcp-tools-content .tool-item {
   padding: 10px;

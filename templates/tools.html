@@ -6,14 +6,19 @@
 
     <template id="server-section-template">
         <div class="server-tools-section">
-            <div class="server-header">
-                <h4></h4>
+            <div class="server-header clickable">
+                <div class="header-content">
+                    <i class="fa-solid fa-chevron-right"></i>
+                    <h4></h4>
+                </div>
                 <label class="checkbox_label">
                     <input type="checkbox" class="server-toggle" />
                     <span>Enable Server</span>
                 </label>
             </div>
-            <div class="tools-list"></div>
+            <div class="tools-list collapsed">
+                <!-- Tools will be populated here -->
+            </div>
         </div>
     </template>
 </div>

@@ -27,6 +27,31 @@
             align-items: center;
             margin-bottom: 10px;
 
+            &.clickable {
+                cursor: pointer;
+                user-select: none;
+                padding: 5px;
+                margin: -5px;
+                border-radius: 3px;
+                transition: background-color 0.2s ease;
+
+                &:hover {
+                    background: var(--black30a);
+                }
+            }
+
+            .header-content {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+
+                i {
+                    transition: transform 0.3s ease;
+                    font-size: 0.8em;
+                    color: var(--SmartThemeEmColor);
+                }
+            }
+
             h4 {
                 margin: 0;
                 color: var(--SmartThemeEmColor);
@@ -35,6 +60,25 @@
 
             .checkbox_label {
                 margin: 0;
+            }
+        }
+
+        .tools-list {
+            max-height: 1000px;
+            opacity: 1;
+            transform-origin: top;
+            transform: scaleY(1);
+            transition: all 0.3s ease-out;
+            will-change: transform, opacity, max-height;
+
+            &.collapsed {
+                max-height: 0;
+                opacity: 0;
+                transform: scaleY(0);
+
+                & + .server-header i {
+                    transform: rotate(-90deg);
+                }
             }
         }
     }

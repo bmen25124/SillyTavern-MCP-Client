@@ -81,6 +81,18 @@ async function handleUIChanges(): Promise<void> {
         serverToggle.checked = server.enabled;
         (serverToggle as HTMLInputElement & { dataset: DOMStringMap }).dataset.server = server.name;
 
+        // Add accordion click handler
+        const serverHeader = serverSection.querySelector('.server-header') as HTMLElement;
+        serverHeader.addEventListener('click', (e) => {
+            // Don't trigger accordion when clicking the toggle
+            if ((e.target as HTMLElement).closest('.checkbox_label')) return;
+
+            const toolsList = serverSection.querySelector('.tools-list') as HTMLElement;
+            const chevron = serverHeader.querySelector('i') as HTMLElement;
+            toolsList.classList.toggle('collapsed');
+            chevron.style.transform = toolsList.classList.contains('collapsed') ? 'rotate(-90deg)' : '';
+        });
+
         // Add server toggle handler
         serverToggle.addEventListener('change', async () => {
           const enabled = serverToggle.checked;
