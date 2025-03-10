@@ -44,8 +44,13 @@ async function handleUIChanges(): Promise<void> {
       await MCPClient.handleTools(enabled);
     });
 
-  $('#mcp_manage_tools').on('click', async function () {
-    const content = await context.renderExtensionTemplateAsync(`third-party/${extensionName}`, 'templates/tools');
+  /**
+   * Creates and shows a popup from a template
+   * @param templatePath The path to the template (without the extension)
+   * @returns The popup content element
+   */
+  async function createAndShowPopup(templatePath: string): Promise<HTMLElement> {
+    const content = await context.renderExtensionTemplateAsync(`third-party/${extensionName}`, templatePath);
 
     // Create popup content
     const tempDiv = document.createElement('div');
@@ -55,6 +60,14 @@ async function handleUIChanges(): Promise<void> {
     // Show popup first so template is in the DOM
     context.callGenericPopup($(popupContent), POPUP_TYPE.DISPLAY);
 
+    return popupContent;
+  }
+
+  /**
+   * Populates the tools list in the popup
+   * @param popupContent The popup content element
+   */
+  async function populateToolsList(popupContent: HTMLElement): Promise<void> {
     const toolsList = popupContent.querySelector('#mcp-tools-list')!;
     const serverTemplate = popupContent.querySelector('#server-section-template') as HTMLTemplateElement;
 
@@ -136,6 +149,11 @@ async function handleUIChanges(): Promise<void> {
         toolsList.appendChild(serverSection);
       }
     }
+  }
+
+  $('#mcp_manage_tools').on('click', async function () {
+    const popupContent = await createAndShowPopup('templates/tools');
+    await populateToolsList(popupContent);
 
     // Add reload all tools button handler
     popupContent.querySelector('#reload-all-tools')?.addEventListener('click', async (e) => {
@@ -154,6 +172,9 @@ async function handleUIChanges(): Promise<void> {
           button.innerHTML = '<i class="fa-solid fa-check"></i> Success';
           button.style.background = 'var(--active)';
           console.log('Successfully reloaded all tools');
+
+          // Refresh the tools list
+          await populateToolsList(popupContent);
         } else {
           // Show error state
           button.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> Failed';
