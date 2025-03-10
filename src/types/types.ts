@@ -78,3 +78,17 @@ export interface ToolDefinitionOpenAI {
     toString: () => string;
   };
 }
+
+export enum POPUP_TYPE {
+  TEXT = 1,
+  CONFIRM = 2,
+  INPUT = 3,
+  DISPLAY = 4,
+}
+
+export enum POPUP_RESULT {
+  AFFIRMATIVE = 1,
+  NEGATIVE = 0,
+  // @ts-ignore
+  CANCELLED = null,
+}

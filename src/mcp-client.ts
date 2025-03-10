@@ -328,6 +328,15 @@ export class MCPClient {
   }
 
   /**
+   * Gets the tools for a specific server.
+   * @param serverName The name of the server to get tools for.
+   * @returns Array of tools for the server, or undefined if server has no tools.
+   */
+  static getServerTools(serverName: string): McpTool[] | undefined {
+    return this.#serverTools.get(serverName);
+  }
+
+  /**
    * Calls a tool on an MCP server.
    * @param serverName The name of the server to call the tool on.
    * @param toolName The name of the tool to call.

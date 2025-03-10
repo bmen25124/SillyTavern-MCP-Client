@@ -1,5 +1,5 @@
 import { MCPClient } from './mcp-client';
-import { EventNames } from './types/types';
+import { EventNames, POPUP_TYPE } from './types/types';
 
 const extensionName = 'SillyTavern-MCP-Client';
 const context = SillyTavern.getContext();
@@ -43,6 +43,53 @@ async function handleUIChanges(): Promise<void> {
       // Use MCPClient's handleTools method to manage tool registration
       await MCPClient.handleTools(enabled);
     });
+
+  $('#mcp_manage_tools').on('click', async function () {
+    const template = await context.renderExtensionTemplateAsync(
+      `third-party/${extensionName}`,
+      'templates/tools',
+    );
+
+    const popup = $(template);
+    const connectedServers = MCPClient.getConnectedServers();
+    const toolsList = popup.find('#mcp-tools-list');
+
+    // Clear and populate tools list
+    toolsList.empty();
+
+    if (connectedServers.length === 0) {
+      toolsList.append('<div class="no-servers">No connected MCP servers found.</div>');
+    } else {
+      for (const serverName of connectedServers) {
+        const tools = MCPClient.getServerTools(serverName);
+        if (tools && tools.length > 0) {
+          const serverSection = $(`
+            <div class="server-tools-section">
+              <h4>${serverName}</h4>
+              <div class="tools-list"></div>
+            </div>
+          `);
+
+          const toolsList = serverSection.find('.tools-list');
+          tools.forEach(tool => {
+            const toolItem = $(`
+              <div class="tool-item">
+                <div class="tool-header">
+                  <span class="tool-name">${tool.name}</span>
+                </div>
+                <div class="tool-description">${tool.description || 'No description available'}</div>
+              </div>
+            `);
+            toolsList.append(toolItem);
+          });
+
+          popup.find('#mcp-tools-list').append(serverSection);
+        }
+      }
+    }
+
+    context.callGenericPopup(popup, POPUP_TYPE.DISPLAY);
+  });
 
   // Initial tool registration if enabled
   await MCPClient.handleTools(context.extensionSettings.mcp.enabled);

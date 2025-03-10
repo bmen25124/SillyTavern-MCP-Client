@@ -1,1 +1,45 @@
+.popup-content:has(.mcp-tools-content) {
+  overflow-y: auto;
+}
 
+.mcp-tools-content {
+  padding: 15px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.mcp-tools-content .mcp-tools-list {
+  margin-top: 15px;
+}
+.mcp-tools-content .server-tools-section {
+  margin-bottom: 20px;
+  background: var(--black50a);
+  border-radius: 5px;
+  padding: 10px;
+}
+.mcp-tools-content .server-tools-section h4 {
+  margin: 0 0 10px 0;
+  color: var(--SmartThemeEmColor);
+  font-size: calc(var(--mainFontSize) * 1.1);
+}
+.mcp-tools-content .tool-item {
+  padding: 10px;
+  margin-bottom: 8px;
+  background: var(--black30a);
+  border-radius: 3px;
+}
+.mcp-tools-content .tool-header {
+  margin-bottom: 5px;
+}
+.mcp-tools-content .tool-name {
+  font-weight: bold;
+  color: var(--SmartThemeBodyColor);
+}
+.mcp-tools-content .tool-description {
+  font-size: calc(var(--mainFontSize) * 0.9);
+  color: var(--SmartThemeEmColor);
+}
+.mcp-tools-content .no-servers {
+  text-align: center;
+  padding: 20px;
+  color: var(--SmartThemeEmColor);
+}
