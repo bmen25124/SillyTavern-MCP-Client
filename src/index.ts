@@ -120,6 +120,30 @@ async function handleUIChanges(): Promise<void> {
           await MCPClient.updateDisabledServers(disabledServers);
         });
 
+        // Add delete server handler
+        const deleteButton = serverSection.querySelector('.delete-server') as HTMLButtonElement;
+        deleteButton.addEventListener('click', async (e) => {
+          e.stopPropagation(); // Prevent accordion from triggering
+          const name = server.name;
+          const confirm = await context.Popup.show.confirm(
+            `Are you sure you want to delete the selected profile?`,
+            name,
+          );
+          if (confirm) {
+            try {
+              const success = await MCPClient.deleteServer(name);
+              if (success) {
+                console.log(`Server "${name}" removed successfully`);
+                await populateToolsList(popupContent);
+              } else {
+                console.error(`Failed to remove server "${name}"`);
+              }
+            } catch (error) {
+              console.error('Error removing server:', error);
+            }
+          }
+        });
+
         // Add tools if available
         const tools = await MCPClient.getServerTools(server.name);
         if (tools && tools.length > 0) {

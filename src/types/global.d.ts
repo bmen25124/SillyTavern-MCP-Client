@@ -36,6 +36,11 @@ declare global {
       inputValue?: string,
       popupOptions?: PopupOptions,
     ) => Promise<POPUP_RESULT | string | (boolean | null)>;
+    Popup: {
+      show: {
+        confirm: (message: string, title?: string) => Promise<boolean>;
+      };
+    };
   }
 
   const SillyTavern: {

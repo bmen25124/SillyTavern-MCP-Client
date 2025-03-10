@@ -89,6 +89,18 @@
   color: var(--SmartThemeEmColor);
   font-size: calc(var(--mainFontSize) * 1.1);
 }
+.mcp-tools-content .server-tools-section .server-header .delete-server {
+  padding: calc(var(--mainFontSize) * 0.3);
+  color: var(--warning);
+  background: var(--black30a);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+.mcp-tools-content .server-tools-section .server-header .delete-server:hover {
+  background: var(--warning);
+  color: white;
+  transform: scale(1.1);
+}
 .mcp-tools-content .server-tools-section .server-header .checkbox_label {
   margin: 0;
 }

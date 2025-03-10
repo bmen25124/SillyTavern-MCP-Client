@@ -149,9 +149,7 @@ export class MCPClient {
         console.log(`[MCPClient] Auto-starting server "${name}"`);
         await this.connect(name, config);
 
-        if (!this.#serverTools.has(name)) {
-          await this.#fetchTools(name);
-        }
+        await this.#fetchTools(name);
 
         this.registerTools(name);
       }
