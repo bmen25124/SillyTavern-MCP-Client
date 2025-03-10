@@ -1,4 +1,4 @@
-An extension of [MCP](https://modelcontextprotocol.io/introduction) for [SillyTavern](https://docs.sillytavern.app/).
+An extension of [MCP](https://modelcontextprotocol.io/introduction) for [SillyTavern](https://docs.sillytavern.app/). A possible solution of https://github.com/SillyTavern/SillyTavern/issues/3335
 
 > Make sure you only installing trusted MCP servers.
 
