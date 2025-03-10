@@ -135,27 +135,25 @@ export class MCPClient {
         }),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        console.log(`[MCPClient] Added server "${name}"`);
-
-        if (context.extensionSettings.mcp?.enabled) {
-          console.log(`[MCPClient] Auto-starting server "${name}"`);
-          await this.connect(name, config);
-
-          if (!this.#serverTools.has(name)) {
-            await this.#fetchTools(name);
-          }
-
-          this.registerTools(name);
-        }
-
-        return true;
-      } else {
-        console.error(`[MCPClient] Failed to add server "${name}":`, data.error);
+      if (!response.ok) {
+        console.error(`[MCPClient] Failed to add server "${name}":`, response.statusText);
         return false;
       }
+
+      console.log(`[MCPClient] Added server "${name}"`);
+
+      if (context.extensionSettings.mcp?.enabled) {
+        console.log(`[MCPClient] Auto-starting server "${name}"`);
+        await this.connect(name, config);
+
+        if (!this.#serverTools.has(name)) {
+          await this.#fetchTools(name);
+        }
+
+        this.registerTools(name);
+      }
+
+      return true;
     } catch (error) {
       console.error(`[MCPClient] Error adding server "${name}":`, error);
       return false;
@@ -177,16 +175,14 @@ export class MCPClient {
         body: JSON.stringify(config),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        this.#connectedServers.set(name, config);
-        console.log(`[MCPClient] Connected to server "${name}"`);
-        return true;
-      } else {
-        console.error(`[MCPClient] Failed to connect to server "${name}":`, data.error);
+      if (!response.ok) {
+        console.error(`[MCPClient] Failed to connect to server "${name}":`, response.statusText);
         return false;
       }
+
+      this.#connectedServers.set(name, config);
+      console.log(`[MCPClient] Connected to server "${name}"`);
+      return true;
     } catch (error) {
       console.error(`[MCPClient] Error connecting to server "${name}":`, error);
       return false;
@@ -206,16 +202,18 @@ export class MCPClient {
         headers: context.getRequestHeaders(),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        console.error(`[MCPClient] Failed to disconnect from server "${name}":`, response.statusText);
+        return false;
+      }
 
-      const success = data.success;
       this.#connectedServers.delete(name);
       console.log(`[MCPClient] Disconnected from server "${name}"`);
 
       // Unregister all tools for this server
       this.#unregisterServerTools(name);
 
-      return success;
+      return true;
     } catch (error) {
       console.error(`[MCPClient] Error disconnecting from server "${name}":`, error);
       return false;
@@ -257,15 +255,13 @@ export class MCPClient {
         headers: context.getRequestHeaders(),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        console.log(`[MCPClient] Deleted server "${name}"`);
-        return true;
-      } else {
-        console.error(`[MCPClient] Failed to delete server "${name}":`, data.error);
+      if (!response.ok) {
+        console.error(`[MCPClient] Failed to delete server "${name}":`, response.statusText);
         return false;
       }
+
+      console.log(`[MCPClient] Deleted server "${name}"`);
+      return true;
     } catch (error) {
       console.error(`[MCPClient] Error deleting server "${name}":`, error);
       return false;
@@ -296,32 +292,30 @@ export class MCPClient {
         }),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        // If MCP is enabled, handle server connections based on their new state
-        if (context.extensionSettings.mcp?.enabled) {
-          const allServers = await this.getServers();
-          for (const server of allServers) {
-            const isDisabled = disabledServers.includes(server.name);
-            if (isDisabled && this.isConnected(server.name)) {
-              // Disconnect if server is now disabled
-              await this.disconnect(server.name);
-            } else if (!isDisabled && !this.isConnected(server.name)) {
-              // Connect if server is now enabled
-              await this.connect(server.name, server.config);
-              if (!this.#serverTools.has(server.name)) {
-                await this.#fetchTools(server.name);
-              }
-              this.registerTools(server.name);
-            }
-          }
-        }
-        return true;
-      } else {
-        console.error('[MCPClient] Failed to update disabled servers:', data.error);
+      if (!response.ok) {
+        console.error('[MCPClient] Failed to update disabled servers:', response.statusText);
         return false;
       }
+
+      // If MCP is enabled, handle server connections based on their new state
+      if (context.extensionSettings.mcp?.enabled) {
+        const allServers = await this.getServers();
+        for (const server of allServers) {
+          const isDisabled = disabledServers.includes(server.name);
+          if (isDisabled && this.isConnected(server.name)) {
+            // Disconnect if server is now disabled
+            await this.disconnect(server.name);
+          } else if (!isDisabled && !this.isConnected(server.name)) {
+            // Connect if server is now enabled
+            await this.connect(server.name, server.config);
+            if (!this.#serverTools.has(server.name)) {
+              await this.#fetchTools(server.name);
+            }
+            this.registerTools(server.name);
+          }
+        }
+      }
+      return true;
     } catch (error) {
       console.error('[MCPClient] Error updating disabled servers:', error);
       return false;
@@ -420,34 +414,32 @@ export class MCPClient {
         }),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        // Update the tools' states in our cache
-        const tools = this.#serverTools.get(serverName);
-        if (tools) {
-          tools.forEach((tool) => {
-            const wasEnabled = tool._enabled;
-            tool._enabled = !disabledTools.includes(tool.name);
-
-            // If MCP is enabled, handle tool registration
-            if (context.extensionSettings.mcp?.enabled && this.isConnected(serverName)) {
-              const toolId = `mcp_${serverName}_${tool.name}`;
-              if (wasEnabled && !tool._enabled) {
-                // Tool was enabled but now disabled - unregister it
-                context.unregisterFunctionTool(toolId);
-              } else if (!wasEnabled && tool._enabled) {
-                // Tool was disabled but now enabled - register it
-                this.#registerMcpTool(serverName, tool);
-              }
-            }
-          });
-        }
-        return true;
-      } else {
-        console.error(`[MCPClient] Failed to update disabled tools for server "${serverName}":`, data.error);
+      if (!response.ok) {
+        console.error(`[MCPClient] Failed to update disabled tools for server "${serverName}":`, response.statusText);
         return false;
       }
+
+      // Update the tools' states in our cache
+      const tools = this.#serverTools.get(serverName);
+      if (tools) {
+        tools.forEach((tool) => {
+          const wasEnabled = tool._enabled;
+          tool._enabled = !disabledTools.includes(tool.name);
+
+          // If MCP is enabled, handle tool registration
+          if (context.extensionSettings.mcp?.enabled && this.isConnected(serverName)) {
+            const toolId = `mcp_${serverName}_${tool.name}`;
+            if (wasEnabled && !tool._enabled) {
+              // Tool was enabled but now disabled - unregister it
+              context.unregisterFunctionTool(toolId);
+            } else if (!wasEnabled && tool._enabled) {
+              // Tool was disabled but now enabled - register it
+              this.#registerMcpTool(serverName, tool);
+            }
+          }
+        });
+      }
+      return true;
     } catch (error) {
       console.error(`[MCPClient] Error updating disabled tools for server "${serverName}":`, error);
       return false;
@@ -477,15 +469,14 @@ export class MCPClient {
         headers: context.getRequestHeaders(),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        console.log(`[MCPClient] Successfully called tool "${toolName}" on server "${serverName}":`, data.result);
-        return data.result;
-      } else {
-        console.error(`[MCPClient] Failed to call tool "${toolName}" on server "${serverName}":`, data.error);
-        throw new Error(data.error || 'Unknown error');
+      if (!response.ok) {
+        console.error(`[MCPClient] Failed to call tool "${toolName}" on server "${serverName}":`, response.statusText);
+        throw new Error(response.statusText);
       }
+
+      const data = await response.json();
+      console.log(`[MCPClient] Successfully called tool "${toolName}" on server "${serverName}":`, data.result);
+      return data.result;
     } catch (error) {
       console.error(`[MCPClient] Error calling tool "${toolName}" on server "${serverName}":`, error);
       throw error;
@@ -512,7 +503,11 @@ export class MCPClient {
             headers: context.getRequestHeaders(),
           });
 
-          const data = await response.json();
+          if (!response.ok) {
+            console.error(`[MCPClient] Failed to reload tools for server "${serverName}":`, response.statusText);
+            allSuccess = false;
+            continue;
+          }
 
           // Re-fetch tools for this server
           await this.#fetchTools(serverName);
