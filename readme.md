@@ -1,4 +1,4 @@
-A server plugin of [MCP](https://modelcontextprotocol.io/introduction) for [SillyTavern](https://docs.sillytavern.app/).
+An extension of [MCP](https://modelcontextprotocol.io/introduction) for [SillyTavern](https://docs.sillytavern.app/).
 
 > Make sure you only installing trusted MCP servers.
 
