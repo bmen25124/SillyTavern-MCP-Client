@@ -440,7 +440,8 @@ export class MCPClient {
       });
 
       if (!response.ok) {
-        throw new Error(response.statusText);
+        const error = await response.json();
+        throw new Error(error.error || response.statusText);
       }
 
       const data = await response.json();
