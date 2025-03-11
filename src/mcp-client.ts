@@ -1,3 +1,5 @@
+import { JsonError } from './json-error';
+
 export interface McpTool {
   name: string;
   description?: string;
@@ -424,32 +426,28 @@ export class MCPClient {
    * @returns The result of the tool call.
    */
   static async callTool(serverName: string, toolName: string, args: any): Promise<any> {
-    try {
-      const context = SillyTavern.getContext();
-      if (!this.isConnected(serverName)) {
-        throw new Error(`MCP server "${serverName}" is not connected.`);
-      }
-
-      const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/call-tool`, {
-        method: 'POST',
-        body: JSON.stringify({
-          toolName,
-          arguments: args,
-        }),
-        headers: context.getRequestHeaders(),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || response.statusText);
-      }
-
-      const data = await response.json();
-      console.log(`[MCPClient] Successfully called tool "${toolName}" on server "${serverName}":`, data.result);
-      return data.result;
-    } catch (error) {
-      throw error;
+    const context = SillyTavern.getContext();
+    if (!this.isConnected(serverName)) {
+      throw new Error(`MCP server "${serverName}" is not connected.`);
     }
+
+    const response = await fetch(`/api/plugins/${PLUGIN_ID}/servers/${serverName}/call-tool`, {
+      method: 'POST',
+      body: JSON.stringify({
+        toolName,
+        arguments: args,
+      }),
+      headers: context.getRequestHeaders(),
+    });
+
+    if (!response.ok) {
+      const resp = await response.json();
+      throw new JsonError(resp.data || resp.error || response.statusText);
+    }
+
+    const data = await response.json();
+    console.log(`[MCPClient] Successfully called tool "${toolName}" on server "${serverName}":`, data.result);
+    return data.result;
   }
 
   /**
