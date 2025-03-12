@@ -58,6 +58,7 @@ async function handleUIChanges(): Promise<void> {
         await MCPClient.handleTools(enabled);
         // Show success state briefly
         labelSpan.html('<i class="fa-solid fa-check"></i> Updated');
+        await refreshExtensionPrompt(!enabled);
       } catch (error) {
         console.error(`[MCPClient] Error handling MCP tools:`, error);
         // Show error state and revert toggle
@@ -159,6 +160,7 @@ async function handleUIChanges(): Promise<void> {
 
             // Show success state briefly
             labelSpan.innerHTML = '<i class="fa-solid fa-check"></i> Updated';
+            await refreshExtensionPrompt();
           } catch (error) {
             console.error('Error updating server state:', error);
             // Show error state and revert toggle
@@ -315,6 +317,8 @@ async function handleUIChanges(): Promise<void> {
         $('#add-server-form').hide();
         $('#server-input').val('');
         await populateToolsList(popupContent);
+
+        await refreshExtensionPrompt();
       } catch (error) {
         console.error('Error adding server:', error);
 
@@ -370,6 +374,7 @@ async function handleUIChanges(): Promise<void> {
 
         // Refresh the tools list
         await populateToolsList(popupContent);
+        await refreshExtensionPrompt();
 
         // Reset button after delay
         setTimeout(() => {
@@ -454,6 +459,7 @@ async function handleUIChanges(): Promise<void> {
 
         // Show success state briefly
         labelSpan.innerHTML = '<i class="fa-solid fa-check"></i> Updated';
+        await refreshExtensionPrompt();
       } catch (error) {
         console.error('Error updating tool state:', error);
         // Show error state and revert toggle
@@ -561,25 +567,20 @@ async function initializeEvents() {
   );
 }
 
-/**
- * Currently we only supporting "Chat Completion" models that supports tools. Like openrouter... is there anything else?
- * BUG: Unless we refresh the page, there are duplicate tool call message in the chat.
- */
-function initializeTextCompletionToolSupport() {
-  const EXTENSION_PROMPT_ID = 'SillyTavern-MCP-Client-Tools-Instruct';
-  async function refreshExtensionPrompt() {
-    const context = SillyTavern.getContext();
-    if (context.mainApi !== 'textgenerationwebui') {
-      delete context.extensionPrompts[EXTENSION_PROMPT_ID];
-      return;
-    }
+const EXTENSION_PROMPT_ID = 'SillyTavern-MCP-Client-Tools-Instruct';
+async function refreshExtensionPrompt(forceDisable: boolean = false) {
+  const context = SillyTavern.getContext();
+  if (forceDisable || context.mainApi !== 'textgenerationwebui') {
+    delete context.extensionPrompts[EXTENSION_PROMPT_ID];
+    return;
+  }
 
-    let data: any = {};
-    await context.registerFunctionToolsOpenAI(data);
-    if (!data['tools']) {
-      return;
-    }
-    const prompt = `<!-- Start of Tool Usage Guidelines -->
+  let data: any = {};
+  await context.registerFunctionToolsOpenAI(data);
+  if (!data['tools']) {
+    return;
+  }
+  const prompt = `<!-- Start of Tool Usage Guidelines -->
 
 ### Tool Invocation
 -  You have two distinct modes of response: **Tool Invocation Mode** and **Roleplay Mode**.
@@ -613,23 +614,23 @@ function initializeTextCompletionToolSupport() {
 
 \`\`\`json
 [
-  {
-    "tool_name": "name_of_tool_1",
-    "parameters": {
-      "param1": "value1",
-      "param2": "value2",
-      ...
+{
+  "tool_name": "name_of_tool_1",
+  "parameters": {
+    "param1": "value1",
+    "param2": "value2",
+    ...
+  }
+},
+{
+  "tool_name": "name_of_tool_2",
+  "parameters": {
+    "paramA": "valueA",
+    "paramB": "valueB",
+    ...
     }
-  },
-  {
-    "tool_name": "name_of_tool_2",
-    "parameters": {
-      "paramA": "valueA",
-      "paramB": "valueB",
-      ...
-      }
-  },
-  ...
+},
+...
 ]
 \`\`\`
 
@@ -651,8 +652,13 @@ ${data['tools']}
 
 Continue the roleplay. Remember to choose **either Tool Invocation Mode or Roleplay Mode** for each response, and **NEVER** combine them.`;
 
-    globalContext.setExtensionPrompt(EXTENSION_PROMPT_ID, prompt, 1, 0);
-  }
+  globalContext.setExtensionPrompt(EXTENSION_PROMPT_ID, prompt, 1, 0);
+}
+
+/**
+ * BUG: If streaming is disabled, unless we refresh the page, there are duplicate tool call message in the chat. It is UI bug.
+ */
+function initializeTextCompletionToolSupport() {
   globalContext.eventSource.on(EventNames.ONLINE_STATUS_CHANGED, async () => {
     await refreshExtensionPrompt();
   });
