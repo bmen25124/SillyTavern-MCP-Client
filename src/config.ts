@@ -7,3 +7,8 @@ export async function st_echo(severity: string, message: string): Promise<void> 
   // @ts-ignore
   await SillyTavern.getContext().SlashCommandParser.commands['echo'].callback({ severity: severity }, message);
 }
+
+export async function st_trigger(): Promise<void> {
+  // @ts-ignore
+  await SillyTavern.getContext().SlashCommandParser.commands['trigger'].callback();
+}

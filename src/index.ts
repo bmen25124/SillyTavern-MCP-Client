@@ -1,15 +1,17 @@
 import { MCPClient, McpTool, ServerConfig } from './mcp-client';
 import { EventNames, POPUP_TYPE } from './types/types';
-import { st_echo } from './config';
+import { st_echo, st_trigger } from './config';
 
 const extensionName = 'SillyTavern-MCP-Client';
-const context = SillyTavern.getContext();
 
 const DEFAULT_SETTINGS: { enabled: boolean } = {
   enabled: false,
 };
 
+const globalContext = SillyTavern.getContext();
+
 function initializeDefaultSettings(): void {
+  const context = SillyTavern.getContext();
   context.extensionSettings.mcp = context.extensionSettings.mcp || {};
 
   let anyChange: boolean = false;
@@ -28,6 +30,7 @@ function initializeDefaultSettings(): void {
 }
 
 async function handleUIChanges(): Promise<void> {
+  const context = SillyTavern.getContext();
   const settings: string = await context.renderExtensionTemplateAsync(
     `third-party/${extensionName}`,
     'templates/settings',
@@ -475,83 +478,230 @@ async function handleUIChanges(): Promise<void> {
   }
 }
 
-function initializeEvents() {
-  context.eventSource.on(
+async function initializeEvents() {
+  async function fixToolErrors(payload: { tools?: any[]; chat_completion_source: string }) {
+    if (!payload.tools) {
+      return;
+    }
+
+    const type = payload.chat_completion_source;
+
+    const removeTitle = (obj: any) => {
+      if (typeof obj !== 'object' || obj === null) return;
+      if (obj.title) {
+        delete obj.title;
+      }
+
+      // Process properties if they exist
+      if (obj.properties) {
+        Object.values(obj.properties).forEach((prop) => removeTitle(prop));
+      }
+
+      // Process items for arrays
+      if (obj.items) {
+        removeTitle(obj.items);
+      }
+
+      // Process allOf, anyOf, oneOf if they exist
+      ['allOf', 'anyOf', 'oneOf'].forEach((key) => {
+        if (Array.isArray(obj[key])) {
+          obj[key].forEach((item) => removeTitle(item));
+        }
+      });
+    };
+
+    payload.tools.forEach((tool) => {
+      removeTitle(tool.function.parameters);
+    });
+
+    const removeProps = (obj: any) => {
+      if (typeof obj !== 'object' || obj === null) return;
+      delete obj.additionalProperties;
+      delete obj.default;
+
+      // Process properties if they exist
+      if (obj.properties) {
+        if (obj.type === 'object' && Object.keys(obj.properties).length === 0) {
+          obj.properties = {
+            _dummy: {
+              type: 'string',
+              description: 'This is a placeholder property to satisfy MakerSuite requirements.',
+            },
+          };
+        }
+        Object.values(obj.properties).forEach((prop) => removeProps(prop));
+      }
+
+      // Process items for arrays
+      if (obj.items) {
+        removeProps(obj.items);
+      }
+
+      // Process allOf, anyOf, oneOf if they exist
+      ['allOf', 'anyOf', 'oneOf'].forEach((key) => {
+        if (Array.isArray(obj[key])) {
+          obj[key].forEach((item) => removeProps(item));
+        }
+      });
+    };
+
+    // makersuite is a special kid, we need to remove "additionalProperties" and "default" from all levels. Also doesn't accept empty params
+    if (type === 'makersuite') {
+      payload.tools.forEach((tool) => {
+        removeProps(tool.function.parameters);
+      });
+    }
+  }
+
+  globalContext.eventSource.on(
     EventNames.CHAT_COMPLETION_SETTINGS_READY,
     async (payload: { tools?: any[]; chat_completion_source: string }) => {
-      if (!payload.tools) {
+      await fixToolErrors(payload);
+    },
+  );
+}
+
+/**
+ * Currently we only supporting "Chat Completion" models that supports tools. Like openrouter... is there anything else?
+ * BUG: Unless we refresh the page, there are duplicate tool call message in the chat.
+ */
+function initializeTextCompletionToolSupport() {
+  const EXTENSION_PROMPT_ID = 'SillyTavern-MCP-Client-Tools-Instruct';
+  async function refreshExtensionPrompt() {
+    const context = SillyTavern.getContext();
+    if (context.mainApi !== 'textgenerationwebui') {
+      delete context.extensionPrompts[EXTENSION_PROMPT_ID];
+      return;
+    }
+
+    let data: any = {};
+    await context.registerFunctionToolsOpenAI(data);
+    if (!data['tools']) {
+      return;
+    }
+    const prompt = `<!-- Start of Tool Usage Guidelines -->
+
+### Tool Invocation
+-  You have two distinct modes of response: **Tool Invocation Mode** and **Roleplay Mode**.
+-  You **MUST** choose **ONE** of these modes for each response.  **NEVER** combine them.
+
+### Tool Invocation Mode
+
+-  You should enter **Tool Invocation Mode** only when you deem it absolutely necessary to use one or more tools to enhance the roleplay, and when those tools can provide information or perform actions that are critical to the story's progress.
+-  In **Tool Invocation Mode**, your **ENTIRE** response MUST consist *only* of a properly formatted JSON array of tool invocation details (see details below). Do **NOT** include any other text, narration, dialogue, or explanations.
+-  You should only use multiple tools if tasks are closely related.
+
+### Roleplay Mode
+
+- In **Roleplay Mode**, you continue the roleplay in natural language, adhering to the 'Role-playing Guidelines'.
+- You **MUST NOT** output JSON in Roleplay Mode.
+- If there is no good use of the tools, you **MUST NOT** call the tool, but only Roleplay Mode instead.
+
+### Tool Invocation Decision-Making
+
+- Tools must closely related to each other.
+- Consider the impact: Will using these tools significantly contribute to the development of the story, the understanding of the characters, or the richness of the world in a way that cannot be achieved through natural language alone?
+- Assess relevance: Are the tools directly relevant to the current situation and the immediate needs of the roleplay? Avoid using tools for tasks that are extraneous or could be handled within the narrative.
+- Think about verisimilitude: Does using the tools in this context feel natural and believable within the world of the roleplay? Would a character in this situation realistically utilize such tools (if the characters had access to tools)?
+- Avoid Redundancy: Do not attempt to use tools if the desired outcome could be achieved through simple narration or dialogue.
+- Do not use Tool to perform redundant action
+
+### Tool Invocation Format
+
+- If and **ONLY IF** you are in **Tool Invocation Mode**:
+- Your **ENTIRE** response **MUST** be a valid JSON array (list) of objects, where each object represents a single tool invocation. Each object must have the following structure:
+
+\`\`\`json
+[
+  {
+    "tool_name": "name_of_tool_1",
+    "parameters": {
+      "param1": "value1",
+      "param2": "value2",
+      ...
+    }
+  },
+  {
+    "tool_name": "name_of_tool_2",
+    "parameters": {
+      "paramA": "valueA",
+      "paramB": "valueB",
+      ...
+      }
+  },
+  ...
+]
+\`\`\`
+
+- Replace \`"name_of_tool_X"\` with the **EXACT** name of the tool you wish to use (as defined in the 'Available Tools' section).
+- The \`"parameters"\` object for each tool should contain **ONLY** the parameters required by that tool, and their corresponding values.
+- Adhere **STRICTLY** to the schema defined for each tool when constructing the \`"parameters"\` object. **VALIDATE YOUR JSON** before including it in your response.
+- Ensure the JSON is parsable without errors.
+- You should only use multiple tools if tasks are closely related
+
+### Available Tools
+
+These tools are available for your use. Study their schemas carefully:
+
+\`\`\`json
+${data['tools']}
+\`\`\`
+
+<!-- End of Tool Usage Guidelines -->
+
+Continue the roleplay. Remember to choose **either Tool Invocation Mode or Roleplay Mode** for each response, and **NEVER** combine them.`;
+
+    globalContext.setExtensionPrompt(EXTENSION_PROMPT_ID, prompt, 1, 0);
+  }
+  globalContext.eventSource.on(EventNames.ONLINE_STATUS_CHANGED, async () => {
+    await refreshExtensionPrompt();
+  });
+  globalContext.eventSource.on(EventNames.CHAT_CHANGED, async () => {
+    await refreshExtensionPrompt();
+  });
+
+  globalContext.eventSource.on(EventNames.MESSAGE_RECEIVED, async (messageId: string | number) => {
+    const context = SillyTavern.getContext();
+    const message = context.chat[Number(messageId)];
+    if (!message) {
+      return;
+    }
+
+    // Extract the tool
+    let match = message.mes.match(/```(?:\w+)?\s*([\s\S]*?)```/s);
+    if (!match) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(match[1]) as { tool_name: string; parameters: any }[];
+      if (!parsed?.length) {
         return;
       }
 
-      const removeTitle = (obj: any) => {
-        if (typeof obj !== 'object' || obj === null) return;
-        if (obj.title) {
-          delete obj.title;
-        }
-
-        // Process properties if they exist
-        if (obj.properties) {
-          Object.values(obj.properties).forEach((prop) => removeTitle(prop));
-        }
-
-        // Process items for arrays
-        if (obj.items) {
-          removeTitle(obj.items);
-        }
-
-        // Process allOf, anyOf, oneOf if they exist
-        ['allOf', 'anyOf', 'oneOf'].forEach((key) => {
-          if (Array.isArray(obj[key])) {
-            obj[key].forEach((item) => removeTitle(item));
-          }
-        });
-      };
-
-      payload.tools.forEach((tool) => {
-        removeTitle(tool.function.parameters);
+      await context.deleteLastMessage();
+      const invocationResult = await context.invokeFunctionTools({
+        responseContent: {
+          parts: parsed.map((item) => ({
+            functionCall: {
+              name: item.tool_name,
+              args: item.parameters,
+            },
+          })),
+        },
       });
+      await context.saveFunctionToolInvocations(invocationResult.invocations);
 
-      const removeProps = (obj: any) => {
-        if (typeof obj !== 'object' || obj === null) return;
-        delete obj.additionalProperties;
-        delete obj.default;
+      // Workaround, ST only accepts non system messages without tool_invocations
+      context.chat[Number(messageId)].is_system = false;
+      delete context.chat[Number(messageId)].extra?.tool_invocations;
 
-        // Process properties if they exist
-        if (obj.properties) {
-          if (obj.type === 'object' && Object.keys(obj.properties).length === 0) {
-            obj.properties = {
-              _dummy: {
-                type: 'string',
-                description: 'This is a placeholder property to satisfy MakerSuite requirements.',
-              },
-            };
-          }
-          Object.values(obj.properties).forEach((prop) => removeProps(prop));
-        }
-
-        // Process items for arrays
-        if (obj.items) {
-          removeProps(obj.items);
-        }
-
-        // Process allOf, anyOf, oneOf if they exist
-        ['allOf', 'anyOf', 'oneOf'].forEach((key) => {
-          if (Array.isArray(obj[key])) {
-            obj[key].forEach((item) => removeProps(item));
-          }
-        });
-      };
-
-      // makersuite is a special kid, we need to remove "additionalProperties" and "default" from all levels. Also doesn't accept empty params
-      if (payload.chat_completion_source === 'makersuite') {
-        payload.tools.forEach((tool) => {
-          removeProps(tool.function.parameters);
-        });
-      }
-    },
-  );
+      st_trigger();
+    } catch (error) {}
+  });
 }
 
 initializeDefaultSettings();
 handleUIChanges();
 initializeEvents();
+initializeTextCompletionToolSupport();
