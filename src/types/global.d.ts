@@ -72,9 +72,11 @@ declare global {
       filter?: () => Promise<boolean> | boolean,
     ) => void;
     extensionPrompts: Record<string, any>;
-    registerFunctionToolsOpenAI: (data: object) => Promise<void>;
-    invokeFunctionTools: (data: ToolContent) => Promise<ToolInvocationResult>;
-    saveFunctionToolInvocations: (invocations: any[]) => Promise<void>;
+    ToolManager: {
+      registerFunctionToolsOpenAI: (data: object) => Promise<void>;
+      invokeFunctionTools: (data: ToolContent) => Promise<ToolInvocationResult>;
+      saveFunctionToolInvocations: (invocations: any[]) => Promise<void>;
+    };
 
     chat: Record<
       number,

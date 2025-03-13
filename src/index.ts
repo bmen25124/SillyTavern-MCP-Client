@@ -576,7 +576,7 @@ async function refreshExtensionPrompt(forceDisable: boolean = false) {
   }
 
   let data: any = {};
-  await context.registerFunctionToolsOpenAI(data);
+  await context.ToolManager.registerFunctionToolsOpenAI(data);
   if (!data['tools']) {
     return;
   }
@@ -666,45 +666,53 @@ function initializeTextCompletionToolSupport() {
     await refreshExtensionPrompt();
   });
 
-  globalContext.eventSource.on(EventNames.MESSAGE_RECEIVED, async (messageId: string | number) => {
-    const context = SillyTavern.getContext();
-    const message = context.chat[Number(messageId)];
-    if (!message) {
-      return;
-    }
-
-    // Extract the tool
-    let match = message.mes.match(/```(?:\w+)?\s*([\s\S]*?)```/s);
-    if (!match) {
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(match[1]) as { tool_name: string; parameters: any }[];
-      if (!parsed?.length) {
+  const ALLOWED_TYPES: (string | undefined)[] = ['regenerate', 'normal', undefined];
+  globalContext.eventSource.on(
+    EventNames.CHARACTER_MESSAGE_RENDERED,
+    async (messageId: string | number, type?: string) => {
+      if (!ALLOWED_TYPES.includes(type)) {
         return;
       }
 
-      await context.deleteLastMessage();
-      const invocationResult = await context.invokeFunctionTools({
-        responseContent: {
-          parts: parsed.map((item) => ({
-            functionCall: {
-              name: item.tool_name,
-              args: item.parameters,
-            },
-          })),
-        },
-      });
-      await context.saveFunctionToolInvocations(invocationResult.invocations);
+      const context = SillyTavern.getContext();
+      const message = context.chat[Number(messageId)];
+      if (!message) {
+        return;
+      }
 
-      // Workaround, ST only accepts non system messages without tool_invocations
-      context.chat[Number(messageId)].is_system = false;
-      delete context.chat[Number(messageId)].extra?.tool_invocations;
+      // Extract the tool
+      let match = message.mes.match(/```(?:\w+)?\s*([\s\S]*?)```/s);
+      if (!match) {
+        return;
+      }
 
-      st_trigger();
-    } catch (error) {}
-  });
+      try {
+        const parsed = JSON.parse(match[1]) as { tool_name: string; parameters: any }[];
+        if (!parsed?.length) {
+          return;
+        }
+
+        await context.deleteLastMessage();
+        const invocationResult = await context.ToolManager.invokeFunctionTools({
+          responseContent: {
+            parts: parsed.map((item) => ({
+              functionCall: {
+                name: item.tool_name,
+                args: item.parameters,
+              },
+            })),
+          },
+        });
+        await context.ToolManager.saveFunctionToolInvocations(invocationResult.invocations);
+
+        // Workaround, ST only accepts non system messages without tool_invocations
+        context.chat[Number(messageId)].is_system = false;
+        // delete context.chat[Number(messageId)].extra?.tool_invocations;
+
+        st_trigger();
+      } catch (error) {}
+    },
+  );
 }
 
 initializeDefaultSettings();
