@@ -1,4 +1,4 @@
-import { JsonError } from './json-error';
+import { JsonError } from './json-error.js';
 
 export interface McpTool {
   name: string;

@@ -1,41 +1,62 @@
-import { MCPClient, McpTool, ServerConfig } from './mcp-client';
-import { EventNames, POPUP_TYPE } from './types/types';
-import { st_echo } from './config';
+import { EventNames } from 'sillytavern-utils-lib/types';
+import { POPUP_TYPE } from 'sillytavern-utils-lib/types/popup';
+import { st_echo } from 'sillytavern-utils-lib/config';
+import { MCPClient, McpTool, ServerConfig } from './mcp-client.js';
 
 const extensionName = 'SillyTavern-MCP-Client';
-const context = SillyTavern.getContext();
+const globalContext = SillyTavern.getContext();
+const EXTENSION_SETTINGS_KEY = 'mcp';
 
-const DEFAULT_SETTINGS: { enabled: boolean } = {
+interface ExtensionSettings {
+  enabled: boolean;
+}
+
+function getExtensionSettings(): ExtensionSettings {
+  const context = SillyTavern.getContext();
+  return context.extensionSettings[EXTENSION_SETTINGS_KEY] as ExtensionSettings;
+}
+
+const DEFAULT_SETTINGS: ExtensionSettings = {
   enabled: false,
 };
 
 function initializeDefaultSettings(): void {
-  context.extensionSettings.mcp = context.extensionSettings.mcp || {};
+  globalContext.extensionSettings[EXTENSION_SETTINGS_KEY] =
+    globalContext.extensionSettings?.[EXTENSION_SETTINGS_KEY] || {};
 
-  let anyChange: boolean = false;
-  for (const key of Object.keys(DEFAULT_SETTINGS)) {
-    // @ts-ignore
-    if (context.extensionSettings.mcp[key] === undefined) {
-      // @ts-ignore
-      context.extensionSettings.mcp[key] = DEFAULT_SETTINGS[key as keyof typeof DEFAULT_SETTINGS];
-      anyChange = true;
+  function initializeRecursively(target: any, defaults: any): boolean {
+    let anyChange = false;
+
+    for (const key of Object.keys(defaults)) {
+      if (target[key] === undefined) {
+        target[key] = defaults[key];
+        anyChange = true;
+      } else if (typeof defaults[key] === 'object' && defaults[key] !== null) {
+        target[key] = target[key] || {};
+        if (initializeRecursively(target[key], defaults[key])) {
+          anyChange = true;
+        }
+      }
     }
+
+    return anyChange;
   }
 
-  if (anyChange) {
-    context.saveSettingsDebounced();
+  if (initializeRecursively(globalContext.extensionSettings[EXTENSION_SETTINGS_KEY], DEFAULT_SETTINGS)) {
+    globalContext.saveSettingsDebounced();
   }
 }
 
 async function handleUIChanges(): Promise<void> {
-  const settings: string = await context.renderExtensionTemplateAsync(
+  const settingsHtml: string = await globalContext.renderExtensionTemplateAsync(
     `third-party/${extensionName}`,
     'templates/settings',
   );
-  $('#extensions_settings').append(settings);
+  $('#extensions_settings').append(settingsHtml);
 
+  const settings = getExtensionSettings();
   $('#mcp_enabled')
-    .prop('checked', context.extensionSettings.mcp.enabled)
+    .prop('checked', settings.enabled)
     .on('change', async function () {
       const toggle = $(this);
       const label = toggle.parent('.checkbox_label');
@@ -47,8 +68,8 @@ async function handleUIChanges(): Promise<void> {
       labelSpan.html('<i class="fa-solid fa-spinner fa-spin"></i> Updating...');
 
       const enabled: boolean = toggle.prop('checked');
-      context.extensionSettings.mcp.enabled = enabled;
-      context.saveSettingsDebounced();
+      settings.enabled = enabled;
+      globalContext.saveSettingsDebounced();
 
       // Use MCPClient's handleTools method to manage tool registration
       try {
@@ -75,7 +96,7 @@ async function handleUIChanges(): Promise<void> {
    * @returns The popup content element
    */
   async function createAndShowPopup(templatePath: string): Promise<HTMLElement> {
-    const content = await context.renderExtensionTemplateAsync(`third-party/${extensionName}`, templatePath);
+    const content = await globalContext.renderExtensionTemplateAsync(`third-party/${extensionName}`, templatePath);
 
     // Create popup content
     const tempDiv = document.createElement('div');
@@ -83,7 +104,7 @@ async function handleUIChanges(): Promise<void> {
     const popupContent = tempDiv.firstElementChild as HTMLElement;
 
     // Show popup first so template is in the DOM
-    context.callGenericPopup($(popupContent), POPUP_TYPE.DISPLAY);
+    globalContext.callGenericPopup($(popupContent), POPUP_TYPE.DISPLAY);
 
     return popupContent;
   }
@@ -177,7 +198,7 @@ async function handleUIChanges(): Promise<void> {
         deleteButton.addEventListener('click', async (e) => {
           e.stopPropagation(); // Prevent accordion from triggering
           const name = server.name;
-          const confirm = await context.Popup.show.confirm(
+          const confirm = await globalContext.Popup.show.confirm(
             `Are you sure you want to delete the selected server?`,
             name,
           );
@@ -469,14 +490,14 @@ async function handleUIChanges(): Promise<void> {
 
   // Initial tool registration if enabled
   try {
-    await MCPClient.handleTools(context.extensionSettings.mcp.enabled);
+    await MCPClient.handleTools(settings.enabled);
   } catch (error) {
     await st_echo('error', `Error handling tools: ${(error as Error).message}`);
   }
 }
 
 function initializeEvents() {
-  context.eventSource.on(
+  globalContext.eventSource.on(
     EventNames.CHAT_COMPLETION_SETTINGS_READY,
     async (payload: { tools?: any[]; chat_completion_source: string }) => {
       if (!payload.tools) {

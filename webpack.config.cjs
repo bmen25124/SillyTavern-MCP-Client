@@ -17,7 +17,7 @@ module.exports = {
     externalsType: 'module',
     externals: [
         function({ context, request }, callback) {
-            if (request.includes('../../../..')) {
+            if (request.includes('../../..')) {
                 // Return the path as an external module import
                 return callback(null, `module ${request}`);
             }
@@ -27,6 +27,9 @@ module.exports = {
     ],
     resolve: {
         extensions: ['.ts', '.tsx', '.js', '.jsx'],
+        extensionAlias: {
+            '.js': ['.ts', '.js']
+        }
     },
     devtool: process.env.NODE_ENV === 'production' ? false : 'source-map',
     module: {

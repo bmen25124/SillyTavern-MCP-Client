@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "target": "ES2020",
+        "target": "ESNext",
         "lib": [
             "dom",
             "dom.iterable",
@@ -9,8 +9,8 @@
         "allowSyntheticDefaultImports": true,
         "forceConsistentCasingInFileNames": true,
         "noFallthroughCasesInSwitch": true,
-        "module": "ES2020",
-        "moduleResolution": "node",
+        "module": "NodeNext",
+        "moduleResolution": "nodenext",
         "strict": true,
         "isolatedModules": true,
         "noEmit": false,
@@ -20,8 +20,7 @@
         "rootDir": "./src"
     },
     "include": [
-        "src/**/*",
-        "types/**/*"
+        "src/**/*"
     ],
     "exclude": [
         "node_modules",
