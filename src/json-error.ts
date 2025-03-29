@@ -6,6 +6,9 @@ export class JsonError extends Error {
   }
 
   toString() {
-    return this.data;
+    if (typeof this.data === 'object' && this.data !== null) {
+      return JSON.stringify(this.data, null, 2);
+    }
+    return String(this.data);
   }
 }
