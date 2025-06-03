@@ -1,5 +1,6 @@
 An extension of [MCP](https://modelcontextprotocol.io/introduction) for [SillyTavern](https://docs.sillytavern.app/). A possible solution of https://github.com/SillyTavern/SillyTavern/issues/3335
 
+> **⚠️ Important:** This extension requires the [SillyTavern MCP Server plugin](https://github.com/bmen25124/SillyTavern-MCP-Server) to be installed first!
 
 > Make sure you only installing trusted MCP servers.
 
@@ -7,14 +8,17 @@ An extension of [MCP](https://modelcontextprotocol.io/introduction) for [SillyTa
 
 ## Installation
 
-1. Go to [server plugin](https://github.com/bmen25124/SillyTavern-MCP-Server) and install.
-2. Install via the SillyTavern extension installer:
+**Prerequisites:**
+1. **Install the MCP Server plugin first** - Go to [SillyTavern MCP Server](https://github.com/bmen25124/SillyTavern-MCP-Server) and install it
+
+**Then install this client extension:**
+1. Install via the SillyTavern extension installer:
 
 ```txt
 https://github.com/bmen25124/SillyTavern-MCP-Client
 ```
-3. Install MCP servers via extension menu.
-4. Enable `Enable function calling` in sampler settings.
+2. Install MCP servers via extension menu.
+3. Enable `Enable function calling` in sampler settings.
 
 ## Demo
 
@@ -23,6 +27,9 @@ https://github.com/user-attachments/assets/659c5112-c2d0-425d-a6fc-e4b47b517066
 
 
 ## FAQ
+
+### I'm getting "MCP Server plugin not found" error
+This means you haven't installed the required [SillyTavern MCP Server plugin](https://github.com/bmen25124/SillyTavern-MCP-Server) yet. Install it first, restart SillyTavern, then try again.
 
 ### Where can I find more servers?
 [Check out the server list](https://github.com/punkpeye/awesome-mcp-servers).

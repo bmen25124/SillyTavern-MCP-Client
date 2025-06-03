@@ -30,11 +30,39 @@ export class MCPClient {
    * A map of connected MCP servers.
    */
   static #connectedServers: Map<string, ServerConfig> = new Map();
-
   /**
    * A map of MCP server tools.
    */
   static #serverTools: Map<string, McpTool[]> = new Map();
+
+  /**
+   * Helper method to provide user-friendly error messages for common issues
+   */
+  static #createUserFriendlyError(response: Response, context: string): Error {
+    const status = response.status;
+    const statusText = response.statusText;
+
+    if (status === 404) {
+      return new Error(
+        `MCP Server plugin not found. Please install the SillyTavern MCP Server plugin first:\n` +
+          `https://github.com/bmen25124/SillyTavern-MCP-Server\n\n` +
+          `After installation, restart SillyTavern and try again.`,
+      );
+    }
+
+    if (status === 500) {
+      return new Error(
+        `MCP Server plugin error. The plugin may not be properly configured or started.\n` +
+          `Check the SillyTavern console for more details.`,
+      );
+    }
+
+    // For other errors, provide a generic but helpful message
+    return new Error(
+      `Failed to ${context}. Error: ${statusText} (${status})\n` +
+        `Make sure the SillyTavern MCP Server plugin is installed and running.`,
+    );
+  }
 
   static async getServers(): Promise<ServerData[]> {
     const context = SillyTavern.getContext();
@@ -128,8 +156,7 @@ export class MCPClient {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || response.statusText);
+      throw this.#createUserFriendlyError(response, 'add MCP server');
     }
 
     console.log(`[MCPClient] Added server "${name}"`);
