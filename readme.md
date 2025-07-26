@@ -24,7 +24,46 @@ https://github.com/bmen25124/SillyTavern-MCP-Client
 
 https://github.com/user-attachments/assets/659c5112-c2d0-425d-a6fc-e4b47b517066
 
+## Example JSONs
 
+### stdio
+```json
+{
+  "mcpServers": {
+    "name": {
+      "command": "npx ...",
+      "type": "stdio",
+      "env": {
+        "CUSTOM_ENV": "value"
+      }
+    }
+  }
+}
+```
+
+### SSE
+```json
+{
+  "mcpServers": {
+    "name": {
+      "url": "http://0.0.0.0:3000/sse",
+      "type": "sse"
+    }
+  }
+}
+```
+
+### Streamable HTTP
+```json
+{
+  "mcpServers": {
+    "name": {
+      "url": "http://0.0.0.0:3000/mcp",
+      "type": "streamableHttp"
+    }
+  }
+}
+```
 
 ## FAQ
 
