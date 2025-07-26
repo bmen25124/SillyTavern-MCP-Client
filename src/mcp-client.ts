@@ -14,7 +14,7 @@ export interface ServerConfig {
   command?: string;
   args?: string[];
   env?: Record<string, string>;
-  type: 'stdio' | 'sse';
+  type: 'stdio' | 'sse' | 'streamableHttp';
 }
 
 interface ServerData {

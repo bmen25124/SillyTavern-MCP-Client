@@ -301,8 +301,13 @@ async function handleUIChanges(): Promise<void> {
           }
 
           serverName = serverEntry[0];
-          const serverConfig = serverEntry[1] as { command: string; args: string[]; env: Record<string, string> };
-          config = { ...serverConfig, type: 'stdio' };
+          const serverConfig = serverEntry[1] as {
+            command: string;
+            args: string[];
+            env: Record<string, string>;
+            type?: string;
+          };
+          config = { type: 'stdio' as any, ...serverConfig };
         } else {
           // Assume it's an command
           const parts = input.trim().split(' ');
