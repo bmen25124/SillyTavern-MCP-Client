@@ -301,15 +301,12 @@ async function handleUIChanges(): Promise<void> {
           }
 
           serverName = serverEntry[0];
-          const serverConfig = serverEntry[1] as {
-            command: string;
-            args: string[];
-            env: Record<string, string>;
-            type?: string;
-          };
-          config = { type: 'stdio' as any, ...serverConfig };
+          // FIX: Directly use the server configuration from the JSON.
+          // Do not overwrite the 'type' field.
+          config = serverEntry[1] as ServerConfig;
+
         } else {
-          // Assume it's an command
+          // Assume it's a command
           const parts = input.trim().split(' ');
 
           // Get the last part of the package name for server name
