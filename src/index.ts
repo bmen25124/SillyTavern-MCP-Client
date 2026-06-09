@@ -302,9 +302,11 @@ async function handleUIChanges(): Promise<void> {
 
           serverName = serverEntry[0];
           const serverConfig = serverEntry[1] as {
-            command: string;
-            args: string[];
-            env: Record<string, string>;
+            command?: string;
+            args?: string[];
+            env?: Record<string, string>;
+            url?: string;
+            headers?: Record<string, string>;
             type?: string;
           };
           config = { type: 'stdio' as any, ...serverConfig };

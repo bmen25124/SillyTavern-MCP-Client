@@ -59,11 +59,16 @@ https://github.com/user-attachments/assets/659c5112-c2d0-425d-a6fc-e4b47b517066
   "mcpServers": {
     "name": {
       "url": "http://0.0.0.0:3000/mcp",
-      "type": "streamableHttp"
+      "type": "streamableHttp",
+      "headers": {
+        "Authorization": "Bearer sk-..."
+      }
     }
   }
 }
 ```
+
+Use `headers` for any HTTP MCP server that requires authentication. LiteLLM-compatible servers usually expect the key in the `Authorization` header with the `Bearer ` prefix.
 
 ## FAQ
 
